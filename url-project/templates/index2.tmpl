@@ -1,0 +1,106 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Twitter urls</title>
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
+<META HTTP-EQUIV="Expires" CONTENT="-1">
+<!--meta http-equiv="refresh" content="10"-->
+<style type='text/css'>
+
+.wrapper{
+   position: relative;
+   float: left;
+   left: 0px;
+   width: 1100px;
+   margin-bottom: 10px;
+   #background-color: #cccccc
+   background-color: #828282
+}
+
+.left1{
+   position: relative;
+   float: left;
+   left:   20px;
+   width:  550px;
+   height: 450px;
+   background-color: #828282
+}
+
+.left2{
+   position: relative;
+   float: left;
+   left: 0px;
+   width: 550px;
+   height: 450px;
+   background-color: #828282
+}
+
+body {
+   border-width: 0px;
+   padding: 0px;
+   margin: 0px;
+   font-size: 90%;
+   background-color: #828282;
+   #background-color: #e7e7de
+}
+.img {
+  position:right;
+  margin:10px;
+  right:15px;
+}
+
+.bottom {
+   position:absolute;
+   left:25px;
+   bottom:0px;
+}
+
+</style>
+</head>
+<body>
+  <!-- tmpl_loop blog-posts -->
+  <div class="wrapper">
+  <hr>
+    <div class="left1">
+      <div class="img">
+	<a href="<!-- tmpl_var cache -->" target="_blank">
+	  <img src="<!--tmpl_var image -->"  heigth=450 width=450   />  
+	</a>
+      </div>
+      <div class="bottom">
+	<a href="<!-- tmpl_var pin-url -->"> 
+	  <img src="<!-- tmpl_var pin -->" height=20 width=20  />  
+	</a>
+	<a href="<!-- tmpl_var thumbs-up-url -->"> 
+	  <img src="<!-- tmpl_var thumbs-up -->" height=20 width=20  />  
+	</a>
+	<a href="<!-- tmpl_var thumbs-down-url -->"> 
+	  <img src="<!-- tmpl_var thumbs-down -->"   height=20 width=20  />  
+	</a>
+	<a href="<!-- tmpl_var archive-url -->"> 
+	  <img src="<!-- tmpl_var archive -->"   height=20 width=20  />  
+	</a>
+      </div>
+    </div>
+    
+    <div class="left2">
+      <br />
+      <p>
+	<strong> <!-- tmpl_var time-delta --> </strong>
+	<br />
+	<!-- tmpl_var time --> 
+      </p>
+      <br />
+      <p>
+	<strong> <!-- tmpl_var title --> </strong>
+      </p>
+      <p>
+	<a href="<!-- tmpl_var redirect-resolved-url -->" target="_blank"> 
+	  <!-- tmpl_var resolved-url -->
+	</a>
+      </p>
+    </div> 
+  </div>
+  <!-- /tmpl_loop -->
+  </body>
+</html>

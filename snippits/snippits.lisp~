@@ -1,0 +1,8 @@
+
+(mapdoc (lambda (k v) (format t "~S:~S~%" k v)) (car (docs (db.find "tweet"  ($exists "entities.urls.url" t)  :limit 1000  :selector ($+ "entities.urls.url" "text" "user.screen-name")))))
+"text":"Mysterious number 6174 | plus.maths.org: http://t.co/3kQVqm6 via @addthis"
+"entities":<DOCUMENT> : { 
+   elements : 1}
+
+
+(NIL NIL)

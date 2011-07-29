@@ -1,0 +1,9 @@
+*~
+*#
+.#*
+*.abcl
+*.lx64fsl
+*.fasl
+*.ht
+*.alias
+driver.spec
