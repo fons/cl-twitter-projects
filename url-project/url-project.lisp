@@ -213,13 +213,15 @@
   (destructuring-bind (day month day-of-month time offset year) (split-sequence:SPLIT-SEQUENCE #\space str)
     (declare (ignore day))
     (destructuring-bind (hour minutes seconds) (split-sequence:SPLIT-SEQUENCE #\: time)
-      (list (parse-integer year) 
-	      (month-str->month-number month) 
-	      (parse-integer day-of-month) 
-	      (parse-integer hour) 
+      (list   (parse-integer seconds) 
 	      (parse-integer minutes) 
-	      (parse-integer seconds) 
-	      (parse-integer offset))))) 
+	      (parse-integer hour)
+	      (parse-integer day-of-month) 
+	      (month-str->month-number month) 
+	      (parse-integer year) 
+	      (parse-integer offset)))))
+	      
+
 
 ;;encode-universal-time second minute hour date month year &optional time-zone
 
@@ -230,8 +232,63 @@
 
 ;;(cl-mongo::make-bson-time (cl-mongo::gmt-to-bson-time (encode-universal-time 30 11 19 11 6 2011)))
 
-
-
 ;;(cl-mongo::make-bson-time (cl-mongo::gmt-to-bson-time (apply #'encode-universal-time (cdr (nreverse (parse-twitter-time (car (get-element "created" (docs (db.find "mohegskunkworks" ($exists "created" t) :limit 2 ))))))))))
 
 ;;(decode-universal-time (cl-mongo::bson-time-to-ut (cl-mongo::make-bson-time (cl-mongo::gmt-to-bson-time (apply #'encode-universal-time (cdr (nreverse (parse-twitter-time (car (get-element "created" (docs (db.find "mohegskunkworks" ($exists "created" t) :limit 2 ))))))))))))
+
+(defun add-timestamp (doc)
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
+    (let* ((time-elements (parse-twitter-time (get-element "created" doc)))
+	   (screen-name   (get-element "user" doc))
+	   (_id           (get-element :_id doc))
+	   (timestamp (cl-mongo::make-bson-time (cl-mongo::gmt-to-bson-time (apply #'encode-universal-time time-elements)))))
+      (db.update screen-name ($ "_id" _id)  ($set "timestamp" timestamp)  :upsert t))))
+
+(defun add-missing-timestamp (screen-name &key (limit 50))
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project")  
+    (let ((doc-lst (docs (db.find screen-name ($ ($exists "timestamp" nil)  ($exists "created" t) ) :limit limit))))
+      (length (mapcar #'add-timestamp doc-lst)))))
+
+;;------------------------------------
+
+
+(defun midnight (&key (hours 0) (days 0))
+ (multiple-value-bind  (second minute hour day month year dow dst-p tz)
+  (decode-universal-time (- (get-universal-time) (+ (* 86400 days ) (* hours 3600))))
+   (encode-universal-time 0 0 0 day month year)))
+
+(defun start-of-day (&key (hours 0) (days 0))
+  (cl-mongo::make-bson-time (cl-mongo::gmt-to-bson-time (midnight :hours hours  :days days))))
+
+(defun query-attribute> (screen-name attribute days-since &key (exists t) )
+    (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
+      (get-element "n" (docs (db.count screen-name ($ ($> "timestamp" (start-of-day :days days-since))  ($exists attribute exists)))))))
+
+(defun query-attribute< (screen-name attribute days-since &key (exists t) )
+    (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
+      (get-element "n" (docs (db.count screen-name ($ ($< "timestamp" (start-of-day :days days-since))  ($exists attribute exists)))))))
+
+(defun query-attribute (screen-name attribute days-since &key (exists t) (since t))
+  (if since
+      (query-attribute> screen-name attribute days-since :exists exists )      
+      (query-attribute< screen-name attribute days-since :exists exists )))
+
+(defun query-total< (screen-name days-since)
+    (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
+      (get-element "n" (docs (db.count screen-name ($<= "timestamp" (start-of-day :days days-since)))))))
+
+(defun query-total> (screen-name days-since)
+    (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
+      (get-element "n" (docs (db.count screen-name ($>= "timestamp" (start-of-day :days days-since)))))))
+
+(defun query-total (screen-name days-since &key (since t))
+  (if since
+      (query-total> screen-name attribute days-since :exists exists )      
+      (query-total< screen-name attribute days-since :exists exists )))
+
+(defun count-attributes (screen-name since &key (attributes (list "archived" "pinned" "liked" "disliked")))
+  (labels ((count-attr (kw)
+	     (query-attribute screen-name kw since :exists t)))
+    (nreverse (pairlis attributes (mapcar #'count-attr attributes)))))
+    
+;;99529100263301121

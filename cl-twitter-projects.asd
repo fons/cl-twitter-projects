@@ -21,8 +21,11 @@
 	      :serial t
 	      :components ((:file "package")
 			   (:file "url-project")
+			   (:file "url-project-main")
 			   (:file "web-server")
+			   (:file "job-scheduler")
 			   (:file "pages")
+;;			   
 			   ))
      )
     :depends-on (:cl-twitter :cl-twit-repl :twitter-mongodb-driver :bordeaux-threads :cl-mongo :cl-ppcre :hunchentoot :html-template))
