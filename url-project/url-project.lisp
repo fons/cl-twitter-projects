@@ -262,11 +262,13 @@
 
 (defun query-attribute> (screen-name attribute days-since &key (exists t) )
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
-      (get-element "n" (docs (db.count screen-name ($ ($> "timestamp" (start-of-day :days days-since))  ($exists attribute exists)))))))
+      (let ((ts (start-of-day :days days-since)))
+	(get-element "n" (docs (db.count screen-name ($ ($> "timestamp" ts) ($exists attribute exists))))))))
 
 (defun query-attribute< (screen-name attribute days-since &key (exists t) )
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
-      (get-element "n" (docs (db.count screen-name ($ ($< "timestamp" (start-of-day :days days-since))  ($exists attribute exists)))))))
+      (let ((ts (start-of-day :days days-since)))
+	(get-element "n" (docs (db.count screen-name ($ ($< "timestamp" ts)  ($exists attribute exists))))))))
 
 (defun query-attribute (screen-name attribute days-since &key (exists t) (since t))
   (if since
@@ -275,20 +277,42 @@
 
 (defun query-total< (screen-name days-since)
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
-      (get-element "n" (docs (db.count screen-name ($<= "timestamp" (start-of-day :days days-since)))))))
+      (let ((ts (start-of-day :days days-since)))
+	(get-element "n" (docs (db.count screen-name ($<= "timestamp" ts )))))))
 
 (defun query-total> (screen-name days-since)
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
-      (get-element "n" (docs (db.count screen-name ($>= "timestamp" (start-of-day :days days-since)))))))
+      (let ((ts (start-of-day :days days-since)))
+	(get-element "n" (docs (db.count screen-name ($>= "timestamp" ts)))))))
 
 (defun query-total (screen-name days-since &key (since t))
   (if since
-      (query-total> screen-name attribute days-since :exists exists )      
-      (query-total< screen-name attribute days-since :exists exists )))
+      (query-total> screen-name days-since)      
+      (query-total< screen-name days-since)))
 
-(defun count-attributes (screen-name since &key (attributes (list "archived" "pinned" "liked" "disliked")))
+(defun count-attributes (screen-name days-since &key (since t) (attributes (list "archived" "pinned" "liked" "disliked")))
   (labels ((count-attr (kw)
-	     (query-attribute screen-name kw since :exists t)))
-    (nreverse (pairlis attributes (mapcar #'count-attr attributes)))))
+	     (query-attribute screen-name kw days-since :exists t :since since)))
+    (acons "total" (query-total screen-name days-since :since since) (nreverse (pairlis attributes (mapcar #'count-attr attributes))))))
     
-;;99529100263301121
+(defun attribute-difference (lhs rhs &optional accum)
+  (if (null lhs)
+      (nreverse accum)
+      (let ((delta ( - (cadar lhs) (cadar rhs))))
+	(attribute-difference  (cdr lhs) (cdr rhs) (acons (caar lhs) delta accum)))))
+
+;;(format nil "~D day~:P" 2)
+
+(defun count-attribute-timeseries (screen-name &key (interval (list 0 1 2 7 14)))
+  (nreverse (acons "total" (count-attributes screen-name 0 :since nil)
+		   (pairlis (mapcar (lambda (d) (format nil "~D day~:P" d)) interval) (mapcar (lambda (days-since) (count-attributes screen-name days-since)) interval)))))
+
+
+;;(a1 a2 a2 a3) ==> a1, f(a2,a1), f(a3,a2) , a3
+
+;;(a1,a2,a3,a4,a5,a6 ==> (a2,a1) , (a3,a2) , (a4, a3) ==> zip ( (a2,a3,a4) (a1,a2,a3) )==> zip (cdr L, L)
+
+;;(mapcar (lambda (s t1) (list s t1) ) (cdr *T*) *T*)
+;;(mapcar (lambda (s t1) (list s t1) ) (cdr *T*) *T*)
+(defun zipper (l)
+  (mapcar (lambda (s t1) (list s t1) ) (cdr l) l))
