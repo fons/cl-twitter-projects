@@ -222,6 +222,31 @@
 	     :blog-posts       (collect-posts))
        :stream stream))))
 
+
+(defun create-statistic (elem) 
+  (let* ((lst ())
+	 (tag (car elem))
+	 (stats (cdr elem)))
+    (dolist  (var stats)
+      (push (intern  (string-upcase (car var)) :keyword)  lst)
+      (push (cadr var) lst))
+    (cons :tag (cons tag (nreverse lst)))))
+
+(defun collect-statistics (&optional (tlf #'create-statistic))
+  (loop for doc in  (count-attribute-timeseries "mohegskunkworks")
+     collect (funcall tlf doc)))
+
+(defun generate-statistics-page (&key (style-sheet 'inject-style-sheet))
+  (with-output-to-string (stream)
+    (let ((html-template:*string-modifier* #'identity))
+      (html-template:fill-and-print-template
+       (template-path "statistics.tmpl")
+       (list :style-sheet (funcall style-sheet)
+	     :title       "twitter urls statistics"
+	     :statistics   (collect-statistics))
+       :stream stream))))
+
+
 #|
 
 |#

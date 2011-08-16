@@ -152,6 +152,7 @@
        (hunchentoot:create-regex-dispatcher "/thumbs-down" (protect 'thumbs-down))
        (hunchentoot:create-regex-dispatcher "/archive"     (protect 'archive))
        (hunchentoot:create-regex-dispatcher "/show-cached" (protect 'show-cached))
+       (hunchentoot:create-regex-dispatcher "/statistics"  (protect 'generate-statistics-page))
        (hunchentoot:create-regex-dispatcher ""             (protect 'generate-index-page))))
 
 (defun start-server()

@@ -191,9 +191,9 @@
 ;;(with-exception-handled #' ping-url (nth 18 (get-element "url" (docs-without-resolved-url "mohegskunkworks"))))
 
 (defun resolve-shortened-urls (screen-name doc)
-  (let ((resolved-url (with-exception-handled #'ping-url (get-element "url" doc))))
+  (let ((resolved-url___ (with-exception-handled #'ping-url (get-element "url" doc))))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )
-      (db.update screen-name ($ "_id" (get-element :_id doc))  ($set "resolved-url"  resolved-url)  :upsert t))))
+      (db.update screen-name ($ "_id" (get-element :_id doc))  (cl-mongo:$set "resolved-url"  resolved-url___)  :upsert t))))
     
 (defun resolve-urls (screen-name &key (limit 20))
   (mapcar (lambda (doc) (resolve-shortened-urls screen-name doc)) (docs-without-resolved-url screen-name :limit limit)))
@@ -290,16 +290,20 @@
       (query-total> screen-name days-since)      
       (query-total< screen-name days-since)))
 
-(defun count-attributes (screen-name days-since &key (since t) (attributes (list "archived" "pinned" "liked" "disliked")))
+;;this assumes "total" is always the first element
+(defvar *statistics-attribute-list* (list "total" "archived" "pinned" "liked" "disliked"))
+
+(defun count-attributes (screen-name days-since &key (since t) (attributes (cdr *statistics-attribute-list*)))
   (labels ((count-attr (kw)
 	     (query-attribute screen-name kw days-since :exists t :since since)))
     (acons "total" (query-total screen-name days-since :since since) (nreverse (pairlis attributes (mapcar #'count-attr attributes))))))
-    
+
 (defun attribute-difference (lhs rhs &optional accum)
   (if (null lhs)
       (nreverse accum)
       (let ((delta ( - (cadar lhs) (cadar rhs))))
-	(attribute-difference  (cdr lhs) (cdr rhs) (acons (caar lhs) delta accum)))))
+	(attribute-difference  (cdr lhs) (cdr rhs) (cons (list (caar lhs) delta) accum)))))
+
 
 ;;(format nil "~D day~:P" 2)
 
@@ -308,11 +312,18 @@
 		   (pairlis (mapcar (lambda (d) (format nil "~D day~:P" d)) interval) (mapcar (lambda (days-since) (count-attributes screen-name days-since)) interval)))))
 
 
-;;(a1 a2 a2 a3) ==> a1, f(a2,a1), f(a3,a2) , a3
 
-;;(a1,a2,a3,a4,a5,a6 ==> (a2,a1) , (a3,a2) , (a4, a3) ==> zip ( (a2,a3,a4) (a1,a2,a3) )==> zip (cdr L, L)
-
-;;(mapcar (lambda (s t1) (list s t1) ) (cdr *T*) *T*)
-;;(mapcar (lambda (s t1) (list s t1) ) (cdr *T*) *T*)
 (defun zipper (l)
   (mapcar (lambda (s t1) (list s t1) ) (cdr l) l))
+
+(defun delta-ts (elem)
+  (let ((lhs (car elem))
+	(rhs (cadr elem)))
+    (cons (car lhs) (attribute-difference (cdr lhs) (cdr rhs)) )))
+
+(defun delta-attribute-timeseries (screen-name)
+  (let ((counts (count-attribute-timeseries screen-name)))
+    (cons (car counts) (mapcar #'delta-ts (zipper counts)))))
+
+#|    
+|#
