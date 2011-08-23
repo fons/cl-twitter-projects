@@ -6,7 +6,9 @@
   (progn
     (cl-mongo:db.use db :mongo mongo)
     (lambda (condition)
-      (cl-mongo:db.insert collection (cl-mongo:kv (cl-mongo:kv "id" id) (cl-mongo:kv "condition" (format nil "~A" condition))) :mongo mongo))))
+      (cl-mongo:db.insert collection (cl-mongo:kv (cl-mongo:kv "id" id) 
+						  (cl-mongo:kv "timestamp" (cl-mongo::make-bson-time))
+						  (cl-mongo:kv "condition" (format nil "~A" condition))) :mongo mongo))))
 
 (defun make-scheduled-job (func &key (args nil) (every 0) (iter 100) (maxerror 5) (errorhandler #'identity))
   (progn

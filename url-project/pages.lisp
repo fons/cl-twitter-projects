@@ -188,7 +188,7 @@
 (defun pin-image ()
   (format nil "/buttons/pin.jpeg")) 
 
-(defun create-post (doc)
+(defun create-doc (doc)
     (list
      :title                  (gen-title doc)
      :cache                  (cache-link doc)
@@ -208,33 +208,50 @@
      :image                  (post-image-filename doc)))
   
 ;;nreverse will put newer first
-(defun collect-posts (&optional (tlf #'create-post))
-  (loop for doc in  (collect-docs-with-thumbnails "mohegskunkworks" 0 30)
+(defun collect-docs (docs &optional (tlf #'create-doc))
+  (loop for doc in  docs
      collect (funcall tlf doc)))
 
-(defun generate-index-page(&key (style-sheet 'inject-style-sheet))
+
+(defun generate-index-page (&key (style-sheet 'inject-style-sheet))
+  (generate-page (collect-docs (collect-docs-with-thumbnails "mohegskunkworks" 0 30)) :style-sheet style-sheet))
+
+(defun generate-page (docs &key (style-sheet 'inject-style-sheet))
   (with-output-to-string (stream)
     (let ((html-template:*string-modifier* #'identity))
       (html-template:fill-and-print-template
        (template-path "index2.tmpl")
        (list :style-sheet (funcall style-sheet)
-	     :blog-title       "twitter urls.."
-	     :blog-posts       (collect-posts))
+	     :title       "twitter urls.."
+	     :docs       docs)
        :stream stream))))
 
 
-(defun create-statistic (elem) 
+(defun tag (tag &optional (stream nil))
+  (format stream "~D day~:P " tag))  
+
+(defun query-url (screen-name attribute since)
+  (format nil "/query?user=~A&attribute=~A&since=~A" screen-name attribute since))
+
+(defun query-url-keyword (type)
+  (intern (string-upcase (format nil "~A-query-url" type) ) :keyword))
+ 
+(defun create-statistic (screen-name elem) 
   (let* ((lst ())
 	 (tag (car elem))
 	 (stats (cdr elem)))
     (dolist  (var stats)
+      (push (query-url-keyword (car var)) lst)
+      (push (query-url screen-name (car var) tag) lst)
       (push (intern  (string-upcase (car var)) :keyword)  lst)
-      (push (cadr var) lst))
-    (cons :tag (cons tag (nreverse lst)))))
+      (push (round (cadr var)) lst))
+    (cons :tag (cons (tag tag) (nreverse lst)))))
 
-(defun collect-statistics (&optional (tlf #'create-statistic))
-  (loop for doc in  (count-attribute-timeseries "mohegskunkworks")
-     collect (funcall tlf doc)))
+
+
+(defun collect-statistics (screen-name &optional (tlf #'create-statistic))
+  (loop for doc in  (count-attribute-timeseries screen-name)
+     collect (funcall tlf screen-name doc)))
 
 (defun generate-statistics-page (&key (style-sheet 'inject-style-sheet))
   (with-output-to-string (stream)
@@ -243,7 +260,7 @@
        (template-path "statistics.tmpl")
        (list :style-sheet (funcall style-sheet)
 	     :title       "twitter urls statistics"
-	     :statistics   (collect-statistics))
+	     :statistics   (collect-statistics "mohegskunkworks"))
        :stream stream))))
 
 

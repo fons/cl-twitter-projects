@@ -73,18 +73,29 @@
 ;;    (push-pages-to-repo (namestring repo-path))
 ;;    (get-static-page "index.html")))
 
-(defun redirect-to-google()
-  (hunchentoot:redirect "http://www.google.com"))
-
 (defun redirect-home ()
   (hunchentoot:redirect "/"))
-
 
 (defun test-response ()
   (format nil "<html> hello world >/html>"))
 
 (defun decode-parameter (parameter)
   (hunchentoot:url-decode (hunchentoot:get-parameter parameter)))
+
+
+(defun parse-url-attribute (attribute)
+  (cond 
+    ((string= attribute "new") (values "archived" nil t))
+    (t                        (values attribute  t   t))))
+
+(defun query ()
+  (let ((user        (hunchentoot:get-parameter "user"))
+	(days-since  (parse-integer (decode-parameter "since"))))
+    (multiple-value-bind  (attribute exists since) (parse-url-attribute (decode-parameter "attribute"))
+      (generate-page (collect-docs (nreverse (query-attribute user attribute days-since :exists exists :since since :query #'cl-mongo-find)))))))
+    
+;;    (format nil "~A:~A:~A" user since attribute)))
+  
 
 (defun show-cached () 
   (let ((user  (hunchentoot:get-parameter "user"))
@@ -151,6 +162,7 @@
        (hunchentoot:create-regex-dispatcher "/thumbs-up"   (protect 'thumbs-up))
        (hunchentoot:create-regex-dispatcher "/thumbs-down" (protect 'thumbs-down))
        (hunchentoot:create-regex-dispatcher "/archive"     (protect 'archive))
+       (hunchentoot:create-regex-dispatcher "/query"       (protect 'query))
        (hunchentoot:create-regex-dispatcher "/show-cached" (protect 'show-cached))
        (hunchentoot:create-regex-dispatcher "/statistics"  (protect 'generate-statistics-page))
        (hunchentoot:create-regex-dispatcher ""             (protect 'generate-index-page))))

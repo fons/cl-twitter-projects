@@ -10,7 +10,7 @@ fi
 
 if [[ -z $name ]]
 then
-    echo "no name specified"
+    echo "no name specified $url $name"
     exit 1
 fi
 
@@ -39,8 +39,8 @@ then
     exit 1
 fi
 
-cmd="$app --url=$url --out=$file_path/screen_shot_$name.jpeg &"
-echo $cmd >/tmp/screen-shot.out
+cmd="$app --url='$url' --out=$file_path/screen_shot_$name.jpeg &"
+echo `date` $cmd >/tmp/screen-shot.out
 eval $cmd >>/tmp/screen-shot.out
 pid=$!
 

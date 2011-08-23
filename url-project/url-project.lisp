@@ -164,11 +164,13 @@
 ;;  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )
 ;;    (docs (db.find screen-name ($ "processed" 0)  :selector "url" :limit limit))))
 
-(defun take-screen-shot (url)
-  (sb-ext:run-program "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/screen-shot.ksh" (list url (url->filename url))))
+(defun take-screen-shot (urls)
+  (let* ((short-url (cadr urls))
+	 (real-url (or (car urls) short-url)))
+    (sb-ext:run-program "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/screen-shot.ksh" (list real-url (url->filename short-url)))))
 
 (defun urls-to-process (screen-name start-id limit)
-  (cl-mongo:get-element "url" (collect-docs-without-thumbnails screen-name start-id limit)))
+  (cl-mongo:collect-all-elements (list "resolved-url" "url") (collect-docs-without-thumbnails screen-name start-id limit)))
 
 (defun get-screen-shots (screen-name &key (limit 20))
   (mapcar #'take-screen-shot (urls-to-process screen-name 0 limit)))
@@ -260,30 +262,42 @@
 (defun start-of-day (&key (hours 0) (days 0))
   (cl-mongo::make-bson-time (cl-mongo::gmt-to-bson-time (midnight :hours hours  :days days))))
 
-(defun query-attribute> (screen-name attribute days-since &key (exists t) )
+(defun cl-mongo-find (screen-name query-form)
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
+    (iter (db.find screen-name query-form :limit 100 ))))
+
+(defun cl-mongo-count (screen-name query-form)
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
+    (db.count screen-name query-form)))
+  
+(defun docs-query-attribute> (screen-name attribute days-since &key (exists t) (query #'cl-mongo-count))
+  (let ((ts (start-of-day :days days-since)))
+    (docs (funcall query screen-name ($ ($> "timestamp" ts) ($exists attribute exists))))))
+
+(defun query-attribute> (screen-name attribute days-since &key (exists t) (query #'cl-mongo-count))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
       (let ((ts (start-of-day :days days-since)))
-	(get-element "n" (docs (db.count screen-name ($ ($> "timestamp" ts) ($exists attribute exists))))))))
+	(docs (funcall query screen-name ($ ($> "timestamp" ts) ($exists attribute exists)))))))
 
-(defun query-attribute< (screen-name attribute days-since &key (exists t) )
+(defun query-attribute< (screen-name attribute days-since &key (exists t) (query #'cl-mongo-find))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
       (let ((ts (start-of-day :days days-since)))
-	(get-element "n" (docs (db.count screen-name ($ ($< "timestamp" ts)  ($exists attribute exists))))))))
+	(docs (funcall query screen-name ($ ($< "timestamp" ts)  ($exists attribute exists)))))))
 
-(defun query-attribute (screen-name attribute days-since &key (exists t) (since t))
+(defun query-attribute (screen-name attribute days-since &key (exists t) (since t) (query #'cl-mongo-count))
   (if since
-      (query-attribute> screen-name attribute days-since :exists exists )      
-      (query-attribute< screen-name attribute days-since :exists exists )))
+      (query-attribute> screen-name attribute days-since :exists exists :query query)      
+      (query-attribute< screen-name attribute days-since :exists exists :query query)))
 
 (defun query-total< (screen-name days-since)
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
       (let ((ts (start-of-day :days days-since)))
-	(get-element "n" (docs (db.count screen-name ($<= "timestamp" ts )))))))
+	(mapcar #'round (get-element "n" (docs (db.count screen-name ($<= "timestamp" ts ))))))))
 
 (defun query-total> (screen-name days-since)
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )  
       (let ((ts (start-of-day :days days-since)))
-	(get-element "n" (docs (db.count screen-name ($>= "timestamp" ts)))))))
+	(mapcar #'round (get-element "n" (docs (db.count screen-name ($>= "timestamp" ts))))))))
 
 (defun query-total (screen-name days-since &key (since t))
   (if since
@@ -291,12 +305,14 @@
       (query-total< screen-name days-since)))
 
 ;;this assumes "total" is always the first element
-(defvar *statistics-attribute-list* (list "total" "archived" "pinned" "liked" "disliked"))
+(defvar *statistics-attribute-list* (list "total" "new" "archived" "pinned" "liked" "disliked"))
 
-(defun count-attributes (screen-name days-since &key (since t) (attributes (cdr *statistics-attribute-list*)))
+(defun count-attributes (screen-name days-since &key (since t) (attributes (cddr *statistics-attribute-list*)))
   (labels ((count-attr (kw)
-	     (query-attribute screen-name kw days-since :exists t :since since)))
-    (acons "total" (query-total screen-name days-since :since since) (nreverse (pairlis attributes (mapcar #'count-attr attributes))))))
+	     (mapcar #'round (get-element "n" (query-attribute screen-name kw days-since :exists t :since since)))))
+    (acons "total" (query-total screen-name days-since :since since) 
+	   (acons "new" (mapcar #'round (get-element "n" (query-attribute "mohegskunkworks" "archived"  days-since :exists nil :since since)))
+		  (nreverse (pairlis attributes (mapcar #'count-attr attributes)))))))
 
 (defun attribute-difference (lhs rhs &optional accum)
   (if (null lhs)
@@ -307,9 +323,10 @@
 
 ;;(format nil "~D day~:P" 2)
 
-(defun count-attribute-timeseries (screen-name &key (interval (list 0 1 2 7 14)))
-  (nreverse (acons "total" (count-attributes screen-name 0 :since nil)
-		   (pairlis (mapcar (lambda (d) (format nil "~D day~:P" d)) interval) (mapcar (lambda (days-since) (count-attributes screen-name days-since)) interval)))))
+(defun count-attribute-timeseries (screen-name &key (interval (list 0 1 2 7 14 30 60)))
+  (nreverse (acons 365 (count-attributes screen-name 365 )
+		   (pairlis (mapcar (lambda (d) d) interval) 
+			    (mapcar (lambda (days-since) (count-attributes screen-name days-since)) interval)))))
 
 
 

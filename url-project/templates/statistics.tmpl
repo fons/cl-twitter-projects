@@ -7,29 +7,21 @@
 <!--meta http-equiv="refresh" content="10"-->
 <style type='text/css'>
 
-.wrapper{
-   position: relative;
-   float: left;
-   left: 0px;
-   width: 1200px;
-   margin-bottom: 10px;
-   background-color: #cccccc
-   #background-color: #828282;
-   font-size: 200%;
-   font-family:sans-serif;
 
-}
 
 .top {
    position: relative;  
    left:0px;
    top:10px;
    height: 100px;
-   width:  1100px;
+   width:  1200px;
    font-size: 400%;
    font-family:sans-serif;
    text-align:center;
-   background-color: #630025;
+   color:#000000;
+
+   #background-color: #111111;
+   #background-color: #ffffcc;
 }
 
 .bottom {
@@ -38,18 +30,11 @@
    bottom:0px;
 }
 
-.margin {
-   float: left;
-   left:   0px;
-   width:  150px;
-   height: 45px;
-
-}
 
 .left-margin {
    float: left;
    left:   0px;
-   width:  100px;
+   width:  50px;
    height: 45px;
 }
 
@@ -75,51 +60,96 @@
    left:   0px;
    width:  150px;
    height: 45px;
-   background-color: #828282;
+   text-align : center;
+   #background-color: #828282;
 }
+
+.wrapper{
+   position: relative;
+   float: left;
+   left: 0px;
+   width: 1300px;
+   margin-bottom: 10px;
+   background-color: #cccccc
+   #background-color: #828282;
+   font-size: 200%;
+   font-family:sans-serif;
+
+}
+
+.wrapper a:link { text-decoration:none;}
+
+.margin {
+   float: left;
+   left:   0px;
+   width:  150px;
+   height: 40px;
+
+}
+   
+
 
 .left1 {
    position: relative;
    float: left;
    left:   0px;
-   width:  150px;
+   width:  130px;
    height: 45px;
-   background-color: #828282;
-
+   text-align : right;
+   padding-right : 20px;
+   background-color: #cccccc;
+   #background-color: #828282;
 }
 
 .left2{
    position: relative;
    float: left;
    left: 0px;
-   width: 150px;
+   width: 130px;
    height: 45px;
-   #background-color: #828282
+   text-align : right;
+   padding-right : 20px;
+   background-color: #ff3333;
+   #background-color: #828282;
+
 }
+
+
+
 
 .left3 {
    position: relative;
    float: left;
    left:   0px;
-   width:  150px;
+   width:  130px;
    height: 45px;
-   #background-color: #828282
+   text-align : right;
+   padding-right : 20px;
+   background-color: #7777ff;
+   #background-color: #66ffff
+
 }
 
 .left4{
    position: relative;
    float: left;
    left: 0px;
-   width: 150px;
+   width: 120px;
    height: 45px;
+   text-align : right;
+   padding-right : 30px;
    #background-color: #828282
+
 }
+
 .left5 {
    position: relative;
    float: left;
    left:   0px;
-   width:  150px;
+   width:  120px;
    height: 45px;
+   text-align : right;
+   padding-right : 30px;
    #background-color: #828282
 }
 
@@ -127,8 +157,10 @@
    position: relative;
    float: left;
    left: 0px;
-   width: 150px;
+   width: 130px;
    height: 45px;
+   text-align : right;
+   padding-right : 20px;
    #background-color: #828282
 }
 
@@ -180,6 +212,11 @@ body {
       <div class="sep">
       </div>
       <div class="header">
+	 new
+      </div>
+      <div class="sep">
+      </div>
+      <div class="header">
 	archived
       </div>
       <div class="sep">
@@ -206,13 +243,14 @@ body {
       </div>
       
     <div class="margin">
-      <!-- tmpl_var tag -->
+      <!-- tmpl_var tag --> 
     </div>
     
     <div class="sep">
     </div>
     
     <div class="left1">
+      <a href="<!-- tmpl_var total-query-url -->" > 
       <!-- tmpl_var total -->
     </div>
     
@@ -220,27 +258,38 @@ body {
     </div>
     
     <div class="left2">
+      <a href="<!-- tmpl_var new-query-url -->" > <!-- tmpl_var new --> </a>
+    </div>
+    
+    <div class="sep">
+    </div>
+    
+    <div class="left3">
+      <a href="<!-- tmpl_var archived-query-url -->" > 
       <!-- tmpl_var archived -->
     </div> 
     
     <div class="sep">
     </div>
     
-    <div class="left3">
+    <div class="left4">
+      <a href="<!-- tmpl_var pinned-query-url -->" > 
       <!-- tmpl_var pinned -->
     </div>
     
     <div class="sep">
     </div>
     
-    <div class="left4">
+    <div class="left5">
+      <a href="<!-- tmpl_var liked-query-url -->" > 
       <!-- tmpl_var liked -->
     </div> 
     
     <div class="sep">
     </div>
     
-    <div class="left5">
+    <div class="left6">
+      <a href="<!-- tmpl_var disliked-query-url -->" > 
       <!-- tmpl_var disliked -->
     </div>
     
