@@ -1,10 +1,16 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>Twitter urls</title>
-<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
-<META HTTP-EQUIV="Expires" CONTENT="-1">
+
+<!--META HTTP-EQUIV="Pragma" CONTENT="no-cache" -->
+<!-- META HTTP-EQUIV="Expires" CONTENT="-1" -->
+<!-- META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE" -->
 <!--meta http-equiv="refresh" content="10"-->
+
+<meta http-equiv="cache-control" content="no-store, no-cache, must-revalidate" />
+<meta http-equiv="Pragma" content="no-store, no-cache" />
+<meta http-equiv="expires" content="mon, 27 sep 2010 14:30:00 GMT">
+
 <style type='text/css'>
 
 .wrapper{
@@ -14,8 +20,15 @@
    width: 1100px;
    margin-bottom: 10px;
    #background-color: #cccccc
-   background-color: #828282
+   font-size: 200%;
+   font-family:sans-serif;
+   color : black;
+    background-color : whitesmoke;
+   #background-color : cornsilk;
+   #background-color : whitesmoke;
+  # background-color: #828282
 }
+
 
 .left1{
    position: relative;
@@ -23,7 +36,7 @@
    left:   20px;
    width:  550px;
    height: 450px;
-   background-color: #828282
+   #background-color: #828282
 }
 
 .left2{
@@ -32,7 +45,54 @@
    left: 0px;
    width: 550px;
    height: 450px;
-   background-color: #828282
+   #background-color: #828282
+}
+
+.left2-sep {
+   float: left;
+   left:   0px;
+   width:  550px;
+   height: 15px;
+}
+
+.left2-left{
+   position: relative;
+   float: left;
+   left: 0px;
+   width: 250px;
+   height: 90px;
+}
+
+.left2-right{
+   position: relative;
+   float: right;
+   left: 0px;
+   width: 100px;
+   height: 90px;
+   font-weight: bold;
+   color : darkred;
+}
+
+.left2-middle{
+   position: relative;
+   float: left;
+   left: 0px;
+   width: 500px;
+   height: 90px;
+   
+}
+
+.left2-bottom{
+   position: bottom;
+   float: left;
+   left: 0px;
+   width: 500px;
+   height: 90px;
+}
+
+.status {
+   font-size: 100%;
+   font-family:sans-serif;
 }
 
 body {
@@ -57,52 +117,99 @@ body {
    position:absolute;
    left:25px;
    bottom:0px;
+   font-size: 100%;
+   font-family:sans-serif;
 }
 
 </style>
+<title>Twitter urls</title>
 </head>
 <body>
   <!-- tmpl_loop docs -->
   <div class="wrapper">
   <hr>
+
     <div class="left1">
       <div class="img">
 	<a href="<!-- tmpl_var cache -->" target="_blank">
 	  <img src="<!--tmpl_var image -->"  heigth=450 width=450   />  
 	</a>
       </div>
+
       <div class="bottom">
+
+	<!-- tmpl_if pinned-button -->
 	<a href="<!-- tmpl_var pin-url -->"> 
 	  <img src="<!-- tmpl_var pin -->" height=20 width=20  />  
 	</a>
+	<!-- /tmpl_if -->  
+
+	<!-- tmpl_if liked-button -->
 	<a href="<!-- tmpl_var thumbs-up-url -->"> 
 	  <img src="<!-- tmpl_var thumbs-up -->" height=20 width=20  />  
 	</a>
+	<!-- /tmpl_if -->  
+
+	<!-- tmpl_if disliked-button -->
 	<a href="<!-- tmpl_var thumbs-down-url -->"> 
 	  <img src="<!-- tmpl_var thumbs-down -->"   height=20 width=20  />  
 	</a>
+	<!-- /tmpl_if -->  
+
+	<!-- tmpl_if archive-button -->
 	<a href="<!-- tmpl_var archive-url -->"> 
 	  <img src="<!-- tmpl_var archive -->"   height=20 width=20  />  
 	</a>
+	<!-- /tmpl_if -->  
+
+	<!-- tmpl_if rearchive-button -->
+	<a href="<!-- tmpl_var rearchive-url -->"> 
+	  <img src="<!-- tmpl_var rearchive -->"   height=20 width=20  />  
+	</a>
+	<!-- /tmpl_if -->  
+
       </div>
+
     </div>
     
     <div class="left2">
-      <br />
-      <p>
+
+      <div class="left2-sep">
+      </div>
+      
+      <div class="left2-left">
 	<strong> <!-- tmpl_var time-delta --> </strong>
 	<br />
 	<!-- tmpl_var time --> 
-      </p>
-      <br />
-      <p>
-	<strong> <!-- tmpl_var title --> </strong>
-      </p>
-      <p>
+      </div>
+
+      <div class="left2-right">
+	<!-- tmpl_unless archive-button -->
+	  archived
+	<!-- /tmpl_unless -->  
+
+	<!-- tmpl_unless disliked-button -->
+	disliked
+	<!-- /tmpl_unless -->  
+
+	<!-- tmpl_unless liked-button -->
+	liked
+	<!-- /tmpl_unless -->  
+
+	<!-- tmpl_unless pinned-button -->
+	pinned
+	<!-- /tmpl_unless -->  
+
+      </div>
+
+      <div class="left2-middle">
+	<!-- tmpl_var title --> 
+      </div>
+      <div class="left2-bottom">
 	<a href="<!-- tmpl_var redirect-resolved-url -->" target="_blank"> 
 	  <!-- tmpl_var resolved-url -->
 	</a>
-      </p>
+      </div>
     </div> 
   </div>
   <!-- /tmpl_loop -->

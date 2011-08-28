@@ -182,30 +182,94 @@
 (defun archive-image ()
   (format nil "/buttons/archive.jpeg")) 
 
+(defun rearchive-url (doc)
+  (format nil "/rearchive?user=~A&url=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc)))
+
+(defun rearchive-image ()
+  (format nil "/buttons/rearchive.jpeg")) 
+
+(defun doc-attr? (attr doc)
+  (not (null (cl-mongo:get-element attr doc))))
+
+(defun doc-archived? (doc)
+  (doc-attr? "archived" doc))
+
+(defun doc-pinned? (doc)
+  (doc-attr? "pinned" doc))
+
+(defun doc-liked? (doc)
+  (doc-attr? "liked" doc))
+
+(defun doc-disliked? (doc)
+  (doc-attr? "disliked" doc))
+
 (defun pin-url (doc)
   (format nil "/pin?user=~A&url=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc)))
 
 (defun pin-image ()
   (format nil "/buttons/pin.jpeg")) 
 
+(defun add-archive-buttons (doc)
+  (if (doc-archived? doc)
+      ()
+      (list
+       :archive-button         1
+       :archive-url            (archive-url doc)
+       :archive                (archive-image) )))
+      
+(defun add-rearchive-buttons (doc)
+  (if (doc-archived? doc)
+      (list
+       :rearchive-button         1
+       :rearchive-url            (rearchive-url doc)
+       :rearchive                (rearchive-image))
+      ()))
+
+      
+
+(defun add-pinned-buttons (doc)
+  (if (doc-pinned? doc)
+      ()
+      (list
+       :pinned-button         1
+       :pin-url                (pin-url doc)
+       :pin                    (pin-image) )))
+
+(defun add-liked-buttons (doc)
+  (if (doc-liked? doc)
+      ()
+      (list
+       :liked-button         1
+       :thumbs-up-url          (thumbs-up-url doc)
+       :thumbs-up              (thumbs-up-image))))
+
+
+(defun add-disliked-buttons (doc)
+  (if (doc-disliked? doc)
+      ()
+      (list
+       :disliked-button         1
+       :thumbs-down-url        (thumbs-down-url doc)
+       :thumbs-down            (thumbs-down-image))))
+
+
 (defun create-doc (doc)
-    (list
-     :title                  (gen-title doc)
-     :cache                  (cache-link doc)
-     :time                   (doc->tweet-created doc)
-     :time-delta             (doc->tweet-since doc)
-     :resolved-url           (resolved-url  doc)
-     :redirect-resolved-url  (redirect-resolved-url doc)
-     :id                     (doc->tweet-id doc)
-     :pin-url                (pin-url doc)
-     :pin                    (pin-image)
-     :thumbs-up-url          (thumbs-up-url doc)
-     :thumbs-up              (thumbs-up-image)
-     :thumbs-down-url        (thumbs-down-url doc)
-     :thumbs-down            (thumbs-down-image)
-     :archive-url            (archive-url doc)
-     :archive                (archive-image)
-     :image                  (post-image-filename doc)))
+  (concatenate 
+   'cons
+   (list
+    :title                  (gen-title doc)
+    :cache                  (cache-link doc)
+    :time                   (doc->tweet-created doc)
+    :time-delta             (doc->tweet-since doc)
+    :resolved-url           (resolved-url  doc)
+    :redirect-resolved-url  (redirect-resolved-url doc)
+    :id                     (doc->tweet-id doc)
+    :image                  (post-image-filename doc))
+    (add-liked-buttons     doc)
+    (add-disliked-buttons  doc)
+    (add-pinned-buttons    doc)
+    (add-rearchive-buttons doc)
+    (add-archive-buttons   doc)))
   
 ;;nreverse will put newer first
 (defun collect-docs (docs &optional (tlf #'create-doc))
@@ -246,7 +310,6 @@
       (push (intern  (string-upcase (car var)) :keyword)  lst)
       (push (round (cadr var)) lst))
     (cons :tag (cons (tag tag) (nreverse lst)))))
-
 
 
 (defun collect-statistics (screen-name &optional (tlf #'create-statistic))

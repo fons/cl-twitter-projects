@@ -91,10 +91,24 @@
 ;;------------------------------------------------------------------------------------------------------------
 ;;----------------------------------------------------------------------------------------------------------
 
-(defun change-field-count (user selector field &key (change 1))
-  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )
-    (db.update user ($ (car selector) (cadr selector))  ($inc field change)  :upsert t :multi t)))
+(defvar *sentiment-list* (list "liked" "disliked" "pinned"))
 
+(defun change-field-count (screen-name selector field &key (change 1))
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )
+    (if (member field *sentiment-list* :test #'string=)
+	(progn
+	  (db.update screen-name ($ (car selector) (cadr selector))  ($ ($unset "liked") ($unset "disliked") ($unset "pinned"))  :upsert t :multi t)
+	  (db.update screen-name ($ (car selector) (cadr selector))  ($ ($inc "archived" change) ($inc field change)) :upsert t :multi t))
+	(db.update screen-name ($ (car selector) (cadr selector))  ($inc field change) :upsert t :multi t))))
+
+
+(defun drop-sentiment-fields (screen-name selector)
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )
+    (db.update screen-name ($ (car selector) (cadr selector))  ($ ($unset "liked") ($unset "disliked") ($unset "pinned") )  :upsert t :multi t)))
+
+(defun add-sentiment-fields (screen-name selector)
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "url-project" )
+    (db.update screen-name ($ (car selector) (cadr selector))  ($ ($set "liked") ($set "disliked") ($set "pinned") ($set "archived"))  :upsert t :multi t)))
 
 ;;------------------------------------------------------------------------------------------------------------
 

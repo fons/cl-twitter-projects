@@ -8,6 +8,10 @@
 
 (defvar *utf-8* (flex:make-external-format :utf-8))
 
+(defvar *template-pathname* (pathname (concatenate 'string (namestring (user-homedir-pathname)) "Repo/git.hub/cl-twitter-projects/url-project/templates/")))
+(defvar *image-file-directory-root* (format nil "~ARepo/git.hub/cl-twitter-projects/url-project" (namestring (user-homedir-pathname))))
+(defvar *redirect-html* (format nil "~ARepo/git.hub/cl-twitter-projects/url-project/templates/redirect.html" (namestring (user-homedir-pathname))))
+
 (setf hunchentoot:*hunchentoot-default-external-format* *utf-8*)
 
 (defun index-unless(d)
@@ -24,10 +28,8 @@
     seq))
 
 (defun get-template-pathname ()
-  #p "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/templates/")
+  *template-pathname*)
 
-(defun get-static-page-pathname ()
-  #p "/Users/fons/Data/twitter-project/pages/")
 
 (defun template-path (tmpl)
   (make-pathname :directory (namestring (get-template-pathname) )  :name tmpl))
@@ -52,26 +54,11 @@
       (error(c)
 	(generate-error-page c "an error occured when generating static pages")))))
 
-(defun static-page-path(p)
-  (let ((name (index-unless p))) 
-    (concatenate 'string (namestring (get-static-page-pathname)) name)))
 
-(defun get-static-page(p) 
-  (with-open-file (stream (static-page-path p ) :direction :input)
-    (slurp-stream stream)))
-
-(defun static-pages()
-  (get-static-page (hunchentoot:request-uri*)))
 
 (defun serve-image-file ()
-  (hunchentoot:handle-static-file   (format nil "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project~A" 
-					    (hunchentoot:url-decode (hunchentoot:request-uri*)))))
-
-
-;;(defun generate-static-pages()
-;;  (let ((repo-path (create-if-missing (get-sandbox-pathname))))
-;;    (push-pages-to-repo (namestring repo-path))
-;;    (get-static-page "index.html")))
+  (hunchentoot:handle-static-file (format nil "~A~A" *image-file-directory-root*
+					  (hunchentoot:url-decode (hunchentoot:request-uri*)))))
 
 (defun redirect-home ()
   (hunchentoot:redirect "/"))
@@ -92,17 +79,16 @@
   (let ((user        (hunchentoot:get-parameter "user"))
 	(days-since  (parse-integer (decode-parameter "since"))))
     (multiple-value-bind  (attribute exists since) (parse-url-attribute (decode-parameter "attribute"))
+      (hunchentoot:no-cache)
       (generate-page (collect-docs (nreverse (query-attribute user attribute days-since :exists exists :since since :query #'cl-mongo-find)))))))
     
-;;    (format nil "~A:~A:~A" user since attribute)))
-  
 
 (defun show-cached () 
   (let ((user  (hunchentoot:get-parameter "user"))
 	(url   (decode-parameter "url"))
 	(image (decode-parameter "image")))
     (change-field-count user (list "url" url) "viewed") 
-    (hunchentoot:handle-static-file   (format nil "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/image/~A" image))))
+    (hunchentoot:handle-static-file   (format nil "~A/image/~A" *image-file-directory-root* image))))
 
 ;;  
 (defun url-type->field (type)
@@ -122,36 +108,39 @@
   (let ((url  (decode-parameter "url"))
 	(user (hunchentoot:get-parameter "user")))
     (change-field-count user (list "url" url) "pinned") 
-    (change-field-count user (list "url" url) "archived") 
-    (hunchentoot:handle-static-file   (format nil "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/templates/redirect.html"))))
+    (hunchentoot:handle-static-file *redirect-html*)))
 
 (defun thumbs-up ()
   (let ((url  (decode-parameter "url"))
 	(user (hunchentoot:get-parameter "user")))
     (change-field-count user (list "url" url) "liked") 
-    (change-field-count user (list "url" url) "archived") 
-    (hunchentoot:handle-static-file   (format nil "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/templates/redirect.html"))))
+    (hunchentoot:handle-static-file *redirect-html*)))
 
-;;    (hunchentoot:redirect "/redirect")))
 
 (defun thumbs-down ()
   (let ((url  (decode-parameter "url"))
 	(user (hunchentoot:get-parameter "user")))
     (change-field-count user (list "url" url) "disliked") 
-    (change-field-count user (list "url" url) "archived") 
-    (hunchentoot:handle-static-file   (format nil "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/templates/redirect.html"))))
-;;    (hunchentoot:redirect "/redirect")))
 
-;;  (hunchentoot:url-decode (strip-utf8 (hunchentoot:url-encode (post-image-title doc)))))
+;;    (hunchentoot:handle-static-file *redirect-html*)))
 
 (defun archive ()
   (let ((url  (decode-parameter "url"))
 	(user (hunchentoot:get-parameter "user")))
     (change-field-count user (list "url" url) "archived") 
-    (hunchentoot:handle-static-file   (format nil "/Users/fons/Repo/git.hub/cl-twitter-projects/url-project/templates/redirect.html"))))
+    (hunchentoot:handle-static-file *redirect-html*)))
+
+(defun rearchive ()
+  (let ((url  (decode-parameter "url"))
+	(user (hunchentoot:get-parameter "user")))
+    (drop-sentiment-fields user (list "url" url)) 
+    (hunchentoot:no-cache)
+    (hunchentoot:redirect "/redirect")))
+
+;;    (hunchentoot:handle-static-file *redirect-html*)))
 
 ;;    (format nil "~A => ~A" url user)))
-;;    (hunchentoot:redirect "/redirect")))
+;;    
   
 (setq hunchentoot:*dispatch-table* 
       (list 
@@ -162,6 +151,7 @@
        (hunchentoot:create-regex-dispatcher "/thumbs-up"   (protect 'thumbs-up))
        (hunchentoot:create-regex-dispatcher "/thumbs-down" (protect 'thumbs-down))
        (hunchentoot:create-regex-dispatcher "/archive"     (protect 'archive))
+       (hunchentoot:create-regex-dispatcher "/rearchive"     (protect 'rearchive))
        (hunchentoot:create-regex-dispatcher "/query"       (protect 'query))
        (hunchentoot:create-regex-dispatcher "/show-cached" (protect 'show-cached))
        (hunchentoot:create-regex-dispatcher "/statistics"  (protect 'generate-statistics-page))
@@ -180,3 +170,20 @@
   ;;(hunchentoot:stop *bliky-server*)
   (setf *url-project-server* nil))
 
+
+
+;;    (format nil "~A:~A:~A" user since attribute)))
+;;(defun get-static-page-pathname ()
+;;  (pathname (concatenate 'string (namestring (user-homedir-pathname)) "Data/twitter-project/pages/")))
+;;
+;;(defun static-page-path(p)
+;;  (let ((name (index-unless p))) 
+;;    (concatenate 'string (namestring (get-static-page-pathname)) name)))
+;;
+;;(defun get-static-page(p) 
+;;  (with-open-file (stream (static-page-path p ) :direction :input)
+;;    (slurp-stream stream)))
+;;
+;;(defun static-pages()
+;;  (get-static-page (hunchentoot:request-uri*)))
+  
