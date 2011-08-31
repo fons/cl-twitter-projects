@@ -113,16 +113,25 @@ body {
   right:15px;
 }
 
-.bottom {
+.bottom-left {
    position:absolute;
+   float:left;
    left:25px;
+   width: 200px;
    bottom:0px;
-   font-size: 100%;
-   font-family:sans-serif;
 }
 
+.bottom-right {
+   position:absolute;
+   float:right;
+   left:425px;
+   width: 200px;
+   bottom:0px;
+}
+.bottom-right a:link { text-decoration:none;}
+
 </style>
-<title>Twitter urls</title>
+<title> <!--  tmpl_var page-title -->  </title>
 </head>
 <body>
   <!-- tmpl_loop docs -->
@@ -136,7 +145,7 @@ body {
 	</a>
       </div>
 
-      <div class="bottom">
+      <div class="bottom-left">
 
 	<!-- tmpl_if pinned-button -->
 	<a href="<!-- tmpl_var pin-url -->"> 
@@ -168,6 +177,11 @@ body {
 	</a>
 	<!-- /tmpl_if -->  
 
+      </div>
+      <div class="bottom-right">
+	<a href="<!-- tmpl_var mainpage-url -->">
+	  main
+	</a>
       </div>
 
     </div>

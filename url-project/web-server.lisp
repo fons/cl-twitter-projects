@@ -3,6 +3,7 @@
 ;;;---------------------------------------------------------------------------------
 ;;--------------------------------------------------------------------------------
 (defvar *url-project-server*  nil)
+(defvar *server-session-id* nil)
 (setf hunchentoot:*message-log-pathname* "/tmp/error.file")
 (defvar *utf-8* (flex:make-external-format :utf-8 :eol-style :lf))
 
@@ -14,10 +15,18 @@
 
 (setf hunchentoot:*hunchentoot-default-external-format* *utf-8*)
 
+
 (defun index-unless(d)
   (if (> (length d) 1)
       d
       "index.html"))
+
+;;use this for cache busting the urls...
+(defun new-session-id ()
+  (setf *server-session-id* (mod (get-universal-time) 65537)))
+
+(defun session-id ()
+  (random *server-session-id*))
 
 (defun slurp-stream(stream)
   ;;from
@@ -79,9 +88,10 @@
   (let ((user        (hunchentoot:get-parameter "user"))
 	(days-since  (parse-integer (decode-parameter "since"))))
     (multiple-value-bind  (attribute exists since) (parse-url-attribute (decode-parameter "attribute"))
-      (hunchentoot:no-cache)
-      (generate-page (collect-docs (nreverse (query-attribute user attribute days-since :exists exists :since since :query #'cl-mongo-find)))))))
-    
+      (let ((docs (nreverse (query-attribute user attribute days-since :exists exists :since since :query #'cl-mongo-find))))
+	(if docs
+	    (generate-page (collect-docs docs :redirect (hunchentoot:url-encode (query-url user (decode-parameter "attribute") days-since))))
+	    (redirect-from-button (hunchentoot:url-encode (format nil "/statistics?user=~A" user))))))))
 
 (defun show-cached () 
   (let ((user  (hunchentoot:get-parameter "user"))
@@ -104,44 +114,58 @@
     (hunchentoot:redirect url)))
 ;;
 
+(defun redirect-from-button (destination)
+  (hunchentoot:redirect (hunchentoot:url-decode destination)))
+
 (defun pin ()
   (let ((url  (decode-parameter "url"))
+	(redirect (decode-parameter "redirect"))
 	(user (hunchentoot:get-parameter "user")))
     (change-field-count user (list "url" url) "pinned") 
-    (hunchentoot:handle-static-file *redirect-html*)))
+    (redirect-from-button redirect)))
+
 
 (defun thumbs-up ()
   (let ((url  (decode-parameter "url"))
+	(redirect (decode-parameter "redirect"))
 	(user (hunchentoot:get-parameter "user")))
     (change-field-count user (list "url" url) "liked") 
-    (hunchentoot:handle-static-file *redirect-html*)))
+    (redirect-from-button redirect)))
+
 
 
 (defun thumbs-down ()
   (let ((url  (decode-parameter "url"))
+	(redirect (decode-parameter "redirect"))
 	(user (hunchentoot:get-parameter "user")))
-    (change-field-count user (list "url" url) "disliked") 
-
-;;    (hunchentoot:handle-static-file *redirect-html*)))
+    (change-field-count user (list "url" url) "disliked")
+    (redirect-from-button redirect)))
 
 (defun archive ()
   (let ((url  (decode-parameter "url"))
+	(redirect (decode-parameter "redirect"))
 	(user (hunchentoot:get-parameter "user")))
     (change-field-count user (list "url" url) "archived") 
-    (hunchentoot:handle-static-file *redirect-html*)))
+    (redirect-from-button redirect)))
 
 (defun rearchive ()
   (let ((url  (decode-parameter "url"))
+	(redirect (decode-parameter "redirect"))
 	(user (hunchentoot:get-parameter "user")))
     (drop-sentiment-fields user (list "url" url)) 
-    (hunchentoot:no-cache)
-    (hunchentoot:redirect "/redirect")))
+    (redirect-from-button redirect)))
 
 ;;    (hunchentoot:handle-static-file *redirect-html*)))
 
 ;;    (format nil "~A => ~A" url user)))
 ;;    
-  
+
+(defun statistics ()
+  (generate-statistics-page (hunchentoot:get-parameter "user")))
+
+(defun index ()
+  (generate-index-page (hunchentoot:get-parameter "user")))
+
 (setq hunchentoot:*dispatch-table* 
       (list 
        (hunchentoot:create-regex-dispatcher "/image/"      (protect 'serve-image-file))
@@ -154,11 +178,12 @@
        (hunchentoot:create-regex-dispatcher "/rearchive"     (protect 'rearchive))
        (hunchentoot:create-regex-dispatcher "/query"       (protect 'query))
        (hunchentoot:create-regex-dispatcher "/show-cached" (protect 'show-cached))
-       (hunchentoot:create-regex-dispatcher "/statistics"  (protect 'generate-statistics-page))
-       (hunchentoot:create-regex-dispatcher ""             (protect 'generate-index-page))))
+       (hunchentoot:create-regex-dispatcher "/statistics"  (protect 'statistics))
+       (hunchentoot:create-regex-dispatcher ""             (protect 'index))))
 
-(defun start-server()
+(defun start-server ()
   (setf *url-project-server* (make-instance 'hunchentoot:acceptor :port 8080))
+  (new-session-id)
   (hunchentoot:start *url-project-server*))
 
 ;;(defun stop-server()
@@ -186,4 +211,7 @@
 ;;
 ;;(defun static-pages()
 ;;  (get-static-page (hunchentoot:request-uri*)))
-  
+ 
+#|
+ 
+|#

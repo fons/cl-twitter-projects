@@ -97,6 +97,13 @@
       (declare (ignore dst-p dow))
       (list year month day hour minute second tz)))
 
+(defun now->str ()
+  (destructuring-bind (yy mm dd hh min sec tz) (now) 
+    (declare (ignore tz))
+    (with-output-to-string (stream)
+      (format stream "~A ~A ~A asof ~A:~A:~A" yy mm dd hh min sec))))
+
+
 (defun time-list-delta (nlst tlst &optional accum)
   (if (or (null nlst) (null tlst))
       (nreverse accum)
@@ -106,11 +113,6 @@
   (destructuring-bind (dy dm dd tdh tdm tds tzd) (time-list-delta (now) (shift-time (parse-twitter-time tstr) :hours 3))
     (declare (ignore tzd))
     (with-output-to-string (stream)
-      ;;(format stream "~A  |||" (shift-time (parse-twitter-time tstr) :hours 4))
-      ;;(format stream "~A  |||" (now))
-      ;;(format stream "~A|~A|~A|" dy dm dd)
-      ;;(format stream "{~A|~A|~A}~%" tdh tdm tds)
-      ;;(format stream "~A  |||" (parse-twitter-time tstr))
       (when (> dy 0)  (format stream "~D year~:P " dy))
       (when (> dm 0)  (format stream "~D month~:P " dm))
       (when (> dd 0)  (format stream "~D day~:P " dd))
@@ -164,26 +166,30 @@
 (defun doc->tweet-created (doc)
   (format nil  "~A" (cl-mongo:get-element "created" doc)))
 
-(defun thumbs-up-url (doc)
-  (format nil "/thumbs-up?user=~A&url=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc)))
+(defun thumbs-up-url (doc &key (redirect :main))
+  (format nil "/thumbs-up?user=~A&url=~A&redirect=~A&cb=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc) redirect (session-id)))
 
 (defun thumbs-up-image ()
   (format nil "/buttons/thumb-up-sm.gif")) 
 
-(defun thumbs-down-url (doc)
-  (format nil "/thumbs-down?user=~A&url=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc)))
+(defun thumbs-down-url (doc &key (redirect :main))
+  (format nil "/thumbs-down?user=~A&url=~A&redirect=~A&cb=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc) redirect (session-id)))
+
+(defun mainpage-url (doc &key (redirect :main))
+  (declare (ignore redirect))
+  (format nil "/statistics?user=~A" (cl-mongo:get-element "user" doc)))
 
 (defun thumbs-down-image ()
   (format nil "/buttons/thumb-down-sm.gif")) 
 
-(defun archive-url (doc)
-  (format nil "/archive?user=~A&url=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc)))
+(defun archive-url (doc &key (redirect :main))
+  (format nil "/archive?user=~A&url=~A&redirect=~A&cb=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc) redirect (session-id)))
 
 (defun archive-image ()
   (format nil "/buttons/archive.jpeg")) 
 
-(defun rearchive-url (doc)
-  (format nil "/rearchive?user=~A&url=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc)))
+(defun rearchive-url (doc &key (redirect :main))
+  (format nil "/rearchive?user=~A&&url=~A&redirect=~A&cb=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc) redirect (session-id)))
 
 (defun rearchive-image ()
   (format nil "/buttons/rearchive.jpeg")) 
@@ -203,57 +209,60 @@
 (defun doc-disliked? (doc)
   (doc-attr? "disliked" doc))
 
-(defun pin-url (doc)
-  (format nil "/pin?user=~A&url=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc)))
+(defun pin-url (doc &key (redirect :main))
+  (format nil "/pin?user=~A&url=~A&redirect=~A&cb=~A" (cl-mongo:get-element "user" doc) (encode-element "url" doc) redirect (session-id)))
 
 (defun pin-image ()
   (format nil "/buttons/pin.jpeg")) 
 
-(defun add-archive-buttons (doc)
+(defun add-archive-buttons (doc &key (redirect :main))
   (if (doc-archived? doc)
       ()
       (list
        :archive-button         1
-       :archive-url            (archive-url doc)
+       :archive-url            (archive-url doc :redirect redirect)
        :archive                (archive-image) )))
       
-(defun add-rearchive-buttons (doc)
+(defun add-rearchive-buttons (doc &key (redirect :main))
   (if (doc-archived? doc)
       (list
        :rearchive-button         1
-       :rearchive-url            (rearchive-url doc)
+       :rearchive-url            (rearchive-url doc :redirect redirect)
        :rearchive                (rearchive-image))
       ()))
 
       
 
-(defun add-pinned-buttons (doc)
+(defun add-pinned-buttons (doc &key (redirect :main))
   (if (doc-pinned? doc)
       ()
       (list
        :pinned-button         1
-       :pin-url                (pin-url doc)
+       :pin-url                (pin-url doc :redirect redirect)
        :pin                    (pin-image) )))
 
-(defun add-liked-buttons (doc)
+(defun add-liked-buttons (doc &key (redirect :main))
   (if (doc-liked? doc)
       ()
       (list
        :liked-button         1
-       :thumbs-up-url          (thumbs-up-url doc)
+       :thumbs-up-url          (thumbs-up-url doc :redirect redirect)
        :thumbs-up              (thumbs-up-image))))
 
 
-(defun add-disliked-buttons (doc)
+(defun add-disliked-buttons (doc &key (redirect :main))
   (if (doc-disliked? doc)
       ()
       (list
        :disliked-button         1
-       :thumbs-down-url        (thumbs-down-url doc)
+       :thumbs-down-url        (thumbs-down-url doc :redirect redirect)
        :thumbs-down            (thumbs-down-image))))
 
+(defun add-mainpage-buttons (doc &key (redirect :main))
+  (list
+   :mainpage-url        (mainpage-url doc :redirect redirect)))
 
-(defun create-doc (doc)
+(defun create-doc (doc &key (redirect :main))
   (concatenate 
    'cons
    (list
@@ -265,20 +274,20 @@
     :redirect-resolved-url  (redirect-resolved-url doc)
     :id                     (doc->tweet-id doc)
     :image                  (post-image-filename doc))
-    (add-liked-buttons     doc)
-    (add-disliked-buttons  doc)
-    (add-pinned-buttons    doc)
-    (add-rearchive-buttons doc)
-    (add-archive-buttons   doc)))
+    (add-liked-buttons     doc :redirect redirect)
+    (add-disliked-buttons  doc :redirect redirect)
+    (add-pinned-buttons    doc :redirect redirect)
+    (add-rearchive-buttons doc :redirect redirect)
+    (add-mainpage-buttons  doc :redirect redirect)
+    (add-archive-buttons   doc :redirect redirect)))
   
 ;;nreverse will put newer first
-(defun collect-docs (docs &optional (tlf #'create-doc))
+(defun collect-docs (docs &key (redirect :main))
   (loop for doc in  docs
-     collect (funcall tlf doc)))
+     collect (apply #'create-doc (list doc :redirect redirect))))
 
-
-(defun generate-index-page (&key (style-sheet 'inject-style-sheet))
-  (generate-page (collect-docs (collect-docs-with-thumbnails "mohegskunkworks" 0 30)) :style-sheet style-sheet))
+(defun generate-index-page (screen-name &key (style-sheet 'inject-style-sheet))
+  (generate-page (collect-docs (collect-docs-with-thumbnails screen-name 0 30)) :style-sheet style-sheet))
 
 (defun generate-page (docs &key (style-sheet 'inject-style-sheet))
   (with-output-to-string (stream)
@@ -286,7 +295,7 @@
       (html-template:fill-and-print-template
        (template-path "index2.tmpl")
        (list :style-sheet (funcall style-sheet)
-	     :title       "twitter urls.."
+	     :page-title  "twitter urls"
 	     :docs       docs)
        :stream stream))))
 
@@ -316,14 +325,14 @@
   (loop for doc in  (count-attribute-timeseries screen-name)
      collect (funcall tlf screen-name doc)))
 
-(defun generate-statistics-page (&key (style-sheet 'inject-style-sheet))
+(defun generate-statistics-page (user &key (style-sheet 'inject-style-sheet))
   (with-output-to-string (stream)
     (let ((html-template:*string-modifier* #'identity))
       (html-template:fill-and-print-template
        (template-path "statistics.tmpl")
        (list :style-sheet (funcall style-sheet)
 	     :title       "twitter urls statistics"
-	     :statistics   (collect-statistics "mohegskunkworks"))
+	     :statistics   (collect-statistics user))
        :stream stream))))
 
 
