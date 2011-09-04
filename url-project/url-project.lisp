@@ -358,3 +358,6 @@
 
 #|    
 |#
+(defun unpack (lst)
+  (if (consp (car lst)) (unpack (car lst))
+      lst))
