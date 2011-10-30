@@ -27,5 +27,15 @@
 			   (:file "pages")
 ;;			   
 			   ))
+
+     (:module "twitter-bot-project"
+	      :serial t
+	      :components ((:file "package")
+			   (:file "twitter-bot")
+			   (:file "job-scheduler")
+;;			   
+			   ))
+
      )
+
     :depends-on (:cl-twitter :cl-twit-repl :twitter-mongodb-driver :bordeaux-threads :cl-mongo :cl-ppcre :hunchentoot :html-template))
