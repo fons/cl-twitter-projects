@@ -44,12 +44,11 @@
 	     (lookup-users nil :user-id idstr) 
 	     (return 'done))
 	 (error (e)
-	   (format t "[~S] ~S~%" retry e))))))
+	   (format t "[~S] ~S~%" retry e)))))
 
 
-(defun walk-cached-social-graph/followers (screen-name)
+(defun walk-cached-social-graph/followers (screen-name &key (maxloop 10000) (cursor -1))
   (let ((result ())
-	(cursor -1)
 	(loopies 0)
 	(entities (list "ids" "next-cursor")))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "twitter" )
@@ -60,13 +59,13 @@
 	 (dolist (chunk (lst->chunks (mapcar (lambda (n) (format nil "~S" n)) (users-not-cached (car  result)))))
 	   (when chunk
 	     (let ((idstr (reduce (lambda (s tag) (concatenate 'string s "," tag)) chunk )))
-	       (format t "looking up chunk ~S~%" chunk)
+	       (format t "looking up chunk ~S~%" idstr)
 		 (lookup-users-restart idstr)
 	       )))
 	 (setf cursor (cadr result))
 	 (incf loopies)
 	 (format t "next cursor ~S [loop ~S]~%" cursor loopies)
-	 (when (or (< cursor 1) (> loopies 10000)) (return 'done))))))
+	 (when (or (< cursor 1) (> loopies maxloop)) (return 'done))))))
       
 
 (defun merge-tags (txt tags)
@@ -91,7 +90,6 @@
   (nth (more-random (+ 1 (length lst))) lst))
 
 
-
 (defun twitter-bot (screen-name)
   (cl-twit-repl:get-authenticated-user screen-name)
   (dolist (tw (make-tweets (read-quote-ids "maozedong" "lrbbase")))
@@ -101,6 +99,6 @@
   (when (zerop (cl-twitter:rate-limit-remaining-hits (cl-twitter:rate-limit-status))) (error "rate limit exceeded for user ~A" screen-name))
   (twitter-bot screen-name))
 
-(defun start-job-twitter-bot (screen-name)
-  (submit-job "job-twitter-bot" #'job-twitter-bot :args (list screen-name) :every 3112 :iter 10 :errorhandler t))
+(defun start-job-twitter-bot (screen-name &key (every 3000) (iter 10))
+  (submit-job (concatenate 'string "job-twitter-bot-" screen-name) #'job-twitter-bot :args (list screen-name) :every every :iter iter :errorhandler t))
   

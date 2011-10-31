@@ -11,7 +11,7 @@
 						  (cl-mongo:kv "condition" (format nil "~A" condition))) :mongo mongo))))
 
 (defun make-scheduled-job (func &key (args nil) (every 0) (iter 100) (maxerror 5) (errorhandler #'identity))
-xf  (progn
+  (progn
     (unless (null args) (assert (equal (type-of args) 'cons)))
     (lambda ()
       (loop
