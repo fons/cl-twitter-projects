@@ -46,8 +46,10 @@ def main (argv) :
         L    = line.split(".")
         L    = L[:-1]
         #L    = map (lambda y : y + ".", L)
-        L    = filter ( lambda l : len (l) < 135, L)
-        L    = filter ( lambda l : len (l) > 25, L)
+
+        #L    = filter ( lambda l : len (l) < 141, L)
+        L    = filter ( lambda l : len (l) > 7, L)
+
         L    = filter ( lambda l : l.find ('Selected Works') < 0, L) 
         L    = filter ( lambda l : l.find ('Speech') < 0, L) 
         L    = filter ( lambda l : l.find ('Talk at') < 0, L) 
@@ -74,7 +76,7 @@ def main (argv) :
         if len (L) > 0 :
             for q in L :
                 count = count + 1
-                print q
+                #print q
                 (txt, ln) = q 
                 totlen = ln
                 posttags = []
@@ -86,16 +88,17 @@ def main (argv) :
                 m = hashlib.md5()
                 m.update(txt)
                 key = unicode(str(m.hexdigest()))                
-                #print txt
-                #print leng
-                post = { "_id"  : key,
-                         "len"  : ln,
-                         "text" : unicode(txt), 
-                         "tags" : posttags,
-                         "date" : datetime.datetime.utcnow()}            
-                print post
+                print txt
+                print ln
+
+                #post = { "_id"  : key,
+                #         "len"  : ln,
+                #         "text" : unicode(txt), 
+                #         "tags" : posttags,
+                #         "date" : datetime.datetime.utcnow()}            
+                #print post
                 #collection.insert (post)
-                M[key] = post
+                #M[key] = post
 
 
     #print M
