@@ -94,7 +94,7 @@ def main (argv) :
                          "tags" : posttags,
                          "date" : datetime.datetime.utcnow()}            
                 print post
-                #collection.insert (post)
+                collection.insert (post)
                 M[key] = post
 
 
