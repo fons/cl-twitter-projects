@@ -1,15 +1,20 @@
 (in-package :cl-twitter-projects-twitter-bot-project)
 
 
-(defvar *twitter-monogodb-initialized* nil)
+(defvar *twitter-mongodb-initialized* nil)
 
 ;;(defun make-social-graph-unique-ids 
+
 
 (defun filter (pred lst)
   (let ((L ()))
     (dolist (el lst)
       (when (funcall pred el) (push el L)))
     (nreverse L)))
+
+(defun logger (log msg)
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "logger" )
+    (cl-mongo:db.insert log ($ ($ "timestamp" (cl-mongo::make-bson-time)) ($ "message" msg)))))
 
 (defun cached-user-id (id)
   (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "twitter" )
@@ -93,17 +98,20 @@
     (format stream "id,screen_name,followers,friends,tweets~%")
     (walk-cached-social-graph/followers screen-name (lambda (idlst) (graph-data idlst :stream stream :f f)) :maxloop maxloop)))
 
-(defun follow-back (screen-name idlst )
-  (dolist (id idlst)
-    (let* ((id-name  (car (get-element "screen-name"  (docs (db.find "twitter-user" ($ "_id" id) :selector ($+ "screen-name" )))))))
-      (handler-case (unless (user-a-following-user-b? screen-name id-name)
-		      (progn
-			(format t "~A NOT following ~A~%" screen-name id-name)
-			  (follow id-name)
-			))
-	(error (e)
-	  (format t "[~S] ~S~%" id-name e))))))
 
+(defun follow-back (screen-name idlst &key (msg (lambda (x) (format t "~S~%" x))))
+  (dolist (id idlst)
+    (unless (null id)
+      (let* ((id-name  (car (get-element "screen-name"  (docs (db.find "twitter-user" ($ "_id" id) :selector ($+ "screen-name" )))))))
+	(handler-case
+	    (unless (user-a-following-user-b? screen-name id-name)
+	      (progn
+		(funcall msg (format nil "~A NOT following ~A~%" screen-name id-name))
+		(follow id-name)))
+	  (twitter-api-condition (c) 
+	    (funcall msg (format nil "[id-name : ~S] twitter signaled an error : ~S : ~S ~%" id-name (cl-twitter::return-code c) (cl-twitter::short-message c))))
+	  (error (c)
+	    (funcall msg (format nil "[id-name : ~S] an error occured : ~S ~%" id-name c))))))))
 
 (defun walk-cached-social-graph/followers (screen-name func &key (maxloop 10000) (cursor -1) (chunk-size 100))
   (let ((result ())
@@ -172,22 +180,38 @@
   (collect-friend-ids screen-name))
 
 (defun auto-follow-back (screen-name)
-  (labels ((fb (id-name)
-	     (follow-back screen-name id-name)))
-    (unless *twitter-monogodb-initialized* 
+  (labels ((*log (msg)
+	     (logger "auto-follow-back" msg))
+	   (fb (id-name)
+	     (*log (format nil "~S follows ~S" screen-name id-name))
+	     (follow-back screen-name id-name :msg #'*log)))
+    (*log (format nil "*twitter-mongodb-initialized* ~S " *twitter-mongodb-initialized*))
+    (unless *twitter-mongodb-initialized* 
       (progn 
+	(*log (format nil "initialize twitter for ~S " screen-name))
 	(cl-twitter:use-cache)
 	(cl-twitter:use-db :twitter-mongodb-driver)
-	(setf *twitter-monogodb-initialized*  'DONE)))
-    (rm "social-graph-cursor-id" ($ "screen-name" screen-name))
+	(setf *twitter-mongodb-initialized*  'DONE)))
+    (*log "use twitter")
+    (db.use "twitter")
+    (*log (format nil "get twitter credentials for ~S (i.e. log in !)" screen-name)) 
+    (cl-twit-repl:get-authenticated-user screen-name)
+    (*log "drop the social graph")
+    (rm "social-graph-cursor-id" ($ "screen-name" screen-name) )
+    (*log (format nil "collect followers for ~S" screen-name))
     (collect-follower-ids screen-name)
+    (*log (format nil "collect friends for ~S" screen-name))
     (collect-friend-ids screen-name)
+    (*log "cache the social graph")
     (cache-social-graph/followers screen-name)
-    (walk-cached-social-graph/followers screen-name #'fb)))
+    (*log "walk the social graph and follow back...")
+    (walk-cached-social-graph/followers screen-name #'fb)
+    (*log "done")))
 
 
 (defun job-auto-follow-back (screen-name)
   (when (zerop (cl-twitter:rate-limit-remaining-hits (cl-twitter:rate-limit-status))) (error "rate limit exceeded for user ~A" screen-name))
+  (logger "auto-follow-back" "starting auto-follow-back .......")
   (auto-follow-back screen-name))
 
 (defun start-job-auto-follow-back (screen-name &key (every 3000) (iter 10))
@@ -209,5 +233,6 @@
 
 
 ;;(defun doc->alist (doc)
+
   
 

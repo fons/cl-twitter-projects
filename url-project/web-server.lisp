@@ -4,7 +4,7 @@
 ;;--------------------------------------------------------------------------------
 (defvar *url-project-server*  nil)
 (defvar *server-session-id* nil)
-(setf hunchentoot:*message-log-pathname* "/tmp/error.file")
+;;(setf hunchentoot:*message-log-pathname* "/tmp/error.file")
 (defvar *utf-8* (flex:make-external-format :utf-8 :eol-style :lf))
 
 (defvar *utf-8* (flex:make-external-format :utf-8))

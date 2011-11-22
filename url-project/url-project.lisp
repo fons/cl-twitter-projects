@@ -4,12 +4,21 @@
   (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "twitter" )
     (cl-mongo:get-element "screen-name" (car (cl-mongo:docs (cl-mongo:db.find "twitter-user" ($ "id" id) :selector "screen-name"))))))
 
-(defun social-graph-friends (screen-name)
+(defun filter (pred lst)
+  (let ((L ()))
+    (dolist (el lst)
+      (when (funcall pred el) (push el L)))
+    (nreverse L)))
+
+    
+(defun social-graph-friends* (screen-name)
   (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "twitter" )
     (let* ((docs  (docs (cl-mongo:db.find "social-graph-cursor-id" ($ "screen-name" screen-name) :selector ($+ "screen-name" "ids")))) 
 	   (ids   (cadr (car (cl-mongo::collect-all-elements (list "screen-name" "ids") docs)))))
-      (mapcar (lambda (id) (id->screen-name id)) ids))))
+      (mapcar (lambda (id) (list (id->screen-name id) id)) ids))))
 
+(defun social-graph-friends (screen-name)
+  (mapcar #'car (filter (lambda (p) (not (null (car p))))  (social-graph-friends* screen-name))))
 
 (defun tweets-with-url (screen-name &optional (last-id 0))
   (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "twitter" )
