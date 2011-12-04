@@ -590,6 +590,21 @@ https://dev.twitter.com/discussions/1748
 (defun start-job-select-retweets (screen-name &key (every 1384) (iter 10))
   (submit-job (concatenate 'string "job-select-retweets-" screen-name) #'job-select-retweets :args (list screen-name) :every every :iter iter :errorhandler t))
 
+(defun user-list-timeline-retweets (screen-name &key (max 1))
+  (let ((retweets (user-list-timeline screen-name :max-per-list max)))
+    (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
+      (dolist (tweet retweets)
+	(when (zerop (ret (db.count "retweets" ($ "_id" (tweet-id tweet)))))
+	  (db.insert "retweets" (retweet->document tweet)))))))
+  
+(defun job-user-list-timeline-retweets (screen-name)
+  (when (zerop (cl-twitter:rate-limit-remaining-hits (cl-twitter:rate-limit-status))) (error "rate limit exceeded for user ~A" screen-name))
+  (user-list-timeline-retweets screen-name :max 2))
+
+(defun start-job-user-list-timeline-retweets (screen-name &key (every 1384) (iter 10))
+  (submit-job (concatenate 'string "job-select-retweets-" screen-name) #'job-user-list-timeline-retweets 
+	      :args (list screen-name) :every every :iter iter :errorhandler t))
+
 
 (defun fmt-retweet (user txt tag)
   (let ((fmt-txt (if tag 
