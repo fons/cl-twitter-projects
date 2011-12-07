@@ -3,12 +3,24 @@
 (defvar *scheduled-job-table*  (make-hash-table :test 'equalp) "table of scheduled jobs")
 
 (defun mongodb-error-handler (id &key (db "scheduler") (collection "error") (mongo nil))
-  (progn
-    (cl-mongo:db.use db :mongo mongo)
     (lambda (condition)
-      (cl-mongo:db.insert collection (cl-mongo:kv (cl-mongo:kv "id" id) 
-						  (cl-mongo:kv "timestamp" (cl-mongo::make-bson-time))
-						  (cl-mongo:kv "condition" (format nil "~A" condition))) :mongo mongo))))
+      (progn
+	(with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db db )
+	  (cl-mongo:db.insert collection (cl-mongo:kv (cl-mongo:kv "id" id) 
+						      (cl-mongo:kv "timestamp" (cl-mongo::make-bson-time))
+						      (cl-mongo:kv "condition" (format nil "~A" condition))) :mongo mongo)))))
+
+;;(print-object (car (get-element "timestamp" (docs (db.find "error" :all :selector "timestamp")))) nil)
+
+(defun fmt-ts (bson-time)
+  (print-object bson-time nil))
+
+(defun show-errors ( &key (db "scheduler") (collection "error"))
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db db)
+    (let* ((docs* (docs (iter (db.find collection :all))))
+	   (elements (cl-mongo:collect-all-elements (list "id" "condition" "timestamp") docs*)))
+      (dolist (el elements)
+	(format t "~A | ~A | ~A ~%" (nth 0 el) (nth 1 el) (fmt-ts (nth 2 el)))))))
 
 (defun make-scheduled-job (func &key (args nil) (every 0) (iter 100) (maxerror 5) (errorhandler #'identity))
   (progn
@@ -64,5 +76,8 @@
   (map-all-jobs (lambda (name thread) (declare (ignore name)) (bordeaux-threads:destroy-thread  thread))))
 
 
+(defun test-job (arg)
+  (error arg))
 
-
+(defun run-test-job (arg &key (every 10) (iter 10) )
+  (submit-job "test-job" #'test-job :args (list arg) :every every :iter iter :errorhandler t))

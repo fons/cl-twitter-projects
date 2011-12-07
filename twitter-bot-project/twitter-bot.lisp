@@ -591,7 +591,7 @@ https://dev.twitter.com/discussions/1748
   (submit-job (concatenate 'string "job-select-retweets-" screen-name) #'job-select-retweets :args (list screen-name) :every every :iter iter :errorhandler t))
 
 (defun user-list-timeline-retweets (screen-name &key (max 1))
-  (let ((retweets (user-list-timeline screen-name :max-per-list max)))
+  (let ((retweets (ht->lst (user-list-timeline screen-name :max-per-list max))))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
       (dolist (tweet retweets)
 	(when (zerop (ret (db.count "retweets" ($ "_id" (tweet-id tweet)))))
@@ -638,8 +638,8 @@ https://dev.twitter.com/discussions/1748
   (when (zerop (cl-twitter:rate-limit-remaining-hits (cl-twitter:rate-limit-status))) (error "rate limit exceeded for user ~A" screen-name))
   (retweet-bot screen-name))
 
-(defun start-job-retweet-bot (screen-name &key (every 183) (iter 10))
-  (submit-job (concatenate 'string "job-retweet-bot-" screen-name) #'job-retweet-bot :args (list screen-name) :every every :iter iter :errorhandler t))
+(defun start-job-retweet-bot (screen-name &key (every 183) (iter 10) (maxerror 5000))
+  (submit-job (concatenate 'string "job-retweet-bot-" screen-name) #'job-retweet-bot :args (list screen-name) :every every :iter iter :errorhandler t :maxerror maxerror))
 
 ;;
 ;; unfollow-bad-friends
@@ -648,5 +648,6 @@ https://dev.twitter.com/discussions/1748
 (defun next-follow-batch (screen-name)
   (dump-social-graph screen-name)
   (flag-follow-backs screen-name :dump-graph nil)
-  (unfollow-bad-friends screen-name :dump-graph nil)
+  (unfollow-bad-friends screen-name)
   (follow-targets screen-name))
+
