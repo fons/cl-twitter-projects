@@ -589,8 +589,11 @@ https://dev.twitter.com/discussions/1748
 (defun start-job-select-retweets (screen-name &key (every 1384) (iter 10))
   (submit-job (concatenate 'string "job-select-retweets-" screen-name) #'job-select-retweets :args (list screen-name) :every every :iter iter :errorhandler t))
 
+;;
+;; Retweet group time line
+;;
 (defun user-list-timeline-retweets (screen-name &key (max 1))
-  (let ((retweets (user-list-timeline screen-name :max-per-list max)))
+  (let ((retweets (ht->lst (user-list-timeline screen-name :max-per-list max))))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
       (dolist (tweet retweets)
 	(when (zerop (ret (db.count "retweets" ($ "_id" (tweet-id tweet)))))
