@@ -595,17 +595,19 @@ https://dev.twitter.com/discussions/1748
 (defun user-list-timeline-retweets (screen-name &key (max 1))
   (let ((retweets (ht->lst (user-list-timeline screen-name :max-per-list max))))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
-      (dolist (tweet retweets)
-	(when (zerop (ret (db.count "retweets" ($ "_id" (tweet-id tweet)))))
-	  (db.insert "retweets" (retweet->document tweet)))))))
+      (progn 
+	(rm "retweets" (cl-mongo:$exists "retweeted" nil))
+	(dolist (tweet retweets)
+	  (when (zerop (ret (db.count "retweets" ($ "_id" (tweet-id tweet)))))
+	    (db.insert "retweets" (retweet->document tweet))))))))
   
 (defun job-user-list-timeline-retweets (screen-name)
   (when (zerop (cl-twitter:rate-limit-remaining-hits (cl-twitter:rate-limit-status))) (error "rate limit exceeded for user ~A" screen-name))
-  (user-list-timeline-retweets screen-name :max 2))
+  (user-list-timeline-retweets screen-name :max 1))
 
-(defun start-job-user-list-timeline-retweets (screen-name &key (every 1384) (iter 10))
-  (submit-job (concatenate 'string "job-select-retweets-" screen-name) #'job-user-list-timeline-retweets 
-	      :args (list screen-name) :every every :iter iter :errorhandler t))
+(defun start-job-user-list-timeline-retweets (screen-name &key (every 1384) (iter 10) (maxerror 20))
+  (submit-job (concatenate 'string "job-user-list-timeline-retweets" screen-name) #'job-user-list-timeline-retweets 
+	      :args (list screen-name) :every every :iter iter :errorhandler t :maxerror maxerror))
 
 
 (defun fmt-retweet (user txt tag)
@@ -651,5 +653,13 @@ https://dev.twitter.com/discussions/1748
   (dump-social-graph screen-name)
   (flag-follow-backs screen-name :dump-graph nil)
   (unfollow-bad-friends screen-name)
+
   (follow-targets screen-name))
 
+
+;;(cl-twit-repl::show (rate-limit-status))
+;;(db.use "darealmaozedong")
+;;(pp (db.count "retweets" (cl-mongo:$exists "retweeted" nil) ))
+;;(start-job-user-list-timeline-retweets "darealmaozedong" :every (* 42 61) :iter 24)
+;;(start-job-retweet-bot "darealmaozedong" :every (* 61 2) :iter 300)
+;;(start-job-twitter-bot "darealmaozedong" :every (* 56 16 ) :iter 320)
