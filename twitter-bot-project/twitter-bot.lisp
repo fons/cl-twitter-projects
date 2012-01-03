@@ -217,8 +217,6 @@
     (cache-social-graph/followers screen-name)
     (cache-social-graph/friends screen-name))
 
-
-
 (defun auto-follow-back (screen-name)
   (labels ((*log (msg)
 	     (logger "auto-follow-back" msg))
@@ -342,7 +340,7 @@
     (zip '(:_id :screen-name :measure :followers-count :friends-count) (list id name mes fo fr))))
 
 (defun info-sources (el)
-  (< (lst-value* :measure el) -0.5))
+  (< (lst-value* :measure el) -0.99))
 
 
 (defun bad-friends (el)
@@ -649,5 +647,14 @@ https://dev.twitter.com/discussions/1748
   (dump-social-graph screen-name)
   (flag-follow-backs screen-name :dump-graph nil)
   (unfollow-bad-friends screen-name)
-  (follow-targets screen-name))
+  (follow-targets screen-name :limit 200))
 
+
+
+;;(delete-user-list-members (list-type-id (get-user-list "occupy")) (twitter-user-id  (get-user "vvv")) )
+;;group time line managment...
+(defun rm-user-from-group (screen-name group-name)
+  (delete-user-list-members (list-type-id (get-user-list group-name )) (twitter-user-id  (get-user screen-name))))
+
+(defun show-members (group)
+  (mapcar #'twitter-user-screen-name (ht->lst (collect-user-list-members (twitter-user-screen-name *twitter-user*) group))))
