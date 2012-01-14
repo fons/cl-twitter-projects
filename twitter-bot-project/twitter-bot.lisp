@@ -737,7 +737,7 @@ https://dev.twitter.com/discussions/1748
   (dump-social-graph screen-name)
   (flag-follow-backs screen-name :dump-graph nil)
   (unfollow-bad-friends screen-name)
-  (follow-targets screen-name :limit 200))
+  (follow-targets screen-name :limit 500))
 
 
 
