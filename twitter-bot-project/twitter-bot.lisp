@@ -60,6 +60,7 @@
 	(entities (list "ids" "next-cursor")))
     (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db "twitter" )
       (loop 
+	 (format t "working with ~S cursor ~S ~%" screen-name cursor)
 	 (setf result (car (cl-mongo:collect-all-elements entities (docs (db.find "social-graph-cursor-id" 
 										  ($ ($ "screen-name" screen-name) 
 										     ($ "command" graph-type) ($ "cursor" cursor)))))))
@@ -345,7 +346,7 @@
 
 
 (defun bad-friends (el)
-  (and  (not (info-sources el))  (not (find (lst-value* :screen-name el) (list "loriabys") :test #'equalp))))
+  (and  (not (info-sources el))  (not (find (lst-value* :screen-name el) (list "loriabys" "chansteele") :test #'equalp))))
   
 ;;  
 
@@ -434,7 +435,7 @@
 ;; follow targets : follow 100 targets...
 ;;
 ;;
-(defun follow-targets (screen-name &key (limit 100))
+(defun follow-targets (screen-name &key (limit 500))
   (cl-twit-repl:get-authenticated-user screen-name)
   (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
     (let ((lst (collect-all-elements (list :_id "screen-name") (docs (db.find "targets" (cl-mongo:$exists "followed" nil) :limit limit)))))
@@ -653,9 +654,22 @@ https://dev.twitter.com/discussions/1748
   (dump-social-graph screen-name)
   (flag-follow-backs screen-name :dump-graph nil)
   (unfollow-bad-friends screen-name)
+  (follow-targets screen-name ))
 
-  (follow-targets screen-name))
+(defun job-next-follow-batch (screen-name)
+  (when (zerop (cl-twitter:rate-limit-remaining-hits (cl-twitter:rate-limit-status))) (error "rate limit exceeded for user ~A" screen-name))
+  (next-follow-batch screen-name))
 
+(defun start-job-next-follow-batch (screen-name &key (every 183) (iter 10) (maxerror 5000))
+  (submit-job (concatenate 'string "job-next-follow-batch-" screen-name) 
+	      #'job-next-follow-batch :args (list screen-name) :every every :iter iter :errorhandler t :maxerror maxerror))
+
+(defun show-counts ()
+  (db.use "darealmaozedong")
+  (pp (db.count "retweets" (cl-mongo:$exists "retweeted" nil) )))
+
+(defun  show-rl ()
+  (cl-twit-repl::show (rate-limit-status)))
 
 ;;(cl-twit-repl::show (rate-limit-status))
 ;;(db.use "darealmaozedong")
@@ -663,3 +677,4 @@ https://dev.twitter.com/discussions/1748
 ;;(start-job-user-list-timeline-retweets "darealmaozedong" :every (* 42 61) :iter 24)
 ;;(start-job-retweet-bot "darealmaozedong" :every (* 61 2) :iter 300)
 ;;(start-job-twitter-bot "darealmaozedong" :every (* 56 16 ) :iter 320)
+;;(start-job-next-follow-batch "darealmaozedong" :every (* 60 60 8) :iter 10)
