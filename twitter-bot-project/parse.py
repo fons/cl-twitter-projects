@@ -88,6 +88,18 @@ def main (argv) :
                 m = hashlib.md5()
                 m.update(txt)
                 key = unicode(str(m.hexdigest()))                
+<<<<<<< HEAD
+                #print txt
+                #print leng
+                post = { "_id"  : key,
+                         "len"  : ln,
+                         "text" : unicode(txt), 
+                         "tags" : posttags,
+                         "date" : datetime.datetime.utcnow()}            
+                print post
+                collection.insert (post)
+                M[key] = post
+=======
                 print txt
                 print ln
 
@@ -99,6 +111,7 @@ def main (argv) :
                 #print post
                 #collection.insert (post)
                 #M[key] = post
+>>>>>>> 73c2762bfcf37d5f7ea9e9547e63b2ca90df6cdc
 
 
     #print M

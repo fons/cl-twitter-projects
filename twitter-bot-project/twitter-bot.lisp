@@ -270,7 +270,6 @@
 
 
 ;;(defun doc->alist (doc)
-  
 
 ;;(defun section (l r inter excl-l excl-r)
 ;;  (cond (eq (car l) (car r)) (section (cdr l) (cdr r) (cons (car l) inter) excl-l excl-r)
@@ -344,7 +343,7 @@
 
 
 (defun bad-friends (el)
-  (and  (not (info-sources el))  (not (find (lst-value* :screen-name el) (list "loriabys") :test #'equalp))))
+  (and  (not (info-sources el))  (not (find (lst-value* :screen-name el) (list "loriabys" "chansteele") :test #'equalp))))
   
 ;;  
 
@@ -565,13 +564,88 @@ https://dev.twitter.com/discussions/1748
 	   (remhash (tweet-id tweet) tweets))
 	 (decf retweets)
 	 (when (or (zerop retweets) (zerop (hash-table-count tweets))) (return lst))))))
-  
+
+;;;---> look to see if the tweet mentions an occupy... 
+;;;---> let's assume it's RT 
+
+(defun entity-match? (entity entity-attribute tweet match-value priority)
+  (labels ((priority (name)
+	     (if (null (scan  match-value (string-downcase name)))
+		 0
+		 priority)))
+    (reduce #'+ (mapcar #'priority (mapcar entity-attribute (funcall entity tweet))))))
+
+;;(defun screen-name? (tweet match-value priority)
+;;  (entity-match? #'entity-user-mentions #'user-mention-screen-name tweet match-value priority))
+
+(defun screen-name? (tweet match-value priority)
+  (entity-match? (lambda (tw) (list (tweet-user tw))) #'twitter-user-screen-name tweet match-value priority))
+
+(defun hashtag? (tweet match-value priority)
+  (entity-match? #'entity-hashtags #'hashtag-text tweet match-value priority))
+
+(defun occupy-mentioned? (tweet &key (priority 500))
+  (user-mention? tweet "^occupy|^liverpoololsfed$" priority))
+
+(defun occupy-tweet? (tweet &key (priority 500))
+  (screen-name? tweet "^occupy|^liverpoololsfed$|^ows" priority))
+
+(defun occupy-hashtag? (tweet &key (priority 100))
+  (hashtag? tweet "^occupy|^liverpoololsfed$" priority))
+
+(defun anon-tweet? (tweet &key (priority 410))
+  (screen-name? tweet "anon" priority))
+
+(defun anon-hashtag? (tweet &key (priority 110))
+  (hashtag? tweet "anon" priority))
+
+(defun freedom-tweet? (tweet &key (priority 405))
+  (screen-name? tweet "^eff$|^aclu$" priority))
+
+(defun wiki-tweet? (tweet &key (priority 400))
+  (screen-name? tweet "wiki|activist" priority))
+
+(defun anarcho-tweet? (tweet &key (priority 300))
+  (screen-name? tweet "anarch|anark" priority))
+
+(defun soccy-tweet? (tweet &key (priority 300))
+  (screen-name? tweet "^thepeoplescause$|^wsws_update$|socia|communist|^bhamcss$" priority))
+
+(defun lwm-tweet? (tweet &key (priority 200))
+  (screen-name? tweet "thinkpro|linksnews|motherjones|dailykos|plutocracyfiles|thenation" priority))
+
+(defun msm-tweet? (tweet &key (priority 50))
+  (screen-name? tweet "thedailybeast|theyoungturks|^ajenglish$" priority))
+
+(defun has-urls? (tweet &key (priority 10))
+  (if (null (entity-urls tweet))
+      0
+      priority))
+
+(defun assign-priority (tweet)
+  (let ((prio))
+    (push (has-urls?         tweet) prio)
+    (push (anon-tweet?       tweet) prio)
+    (push (anon-hashtag?     tweet) prio)
+    (push (freedom-tweet?    tweet) prio)
+    (push (wiki-tweet?       tweet) prio)
+    (push (anarcho-tweet?    tweet) prio)
+    (push (soccy-tweet?      tweet) prio)
+    (push (lwm-tweet?        tweet) prio)
+    (push (msm-tweet?        tweet) prio)
+    (push (occupy-tweet?     tweet) prio)
+    (push (occupy-mentioned? tweet) prio)
+    (push (occupy-hashtag?   tweet) prio)
+    (reduce #'+ prio)))
+
+ 
 (defun retweet->document (tweet)
   (let ((ht (make-hash-table :test #'equalp)))
     (setf (gethash "_id"          ht) (tweet-id tweet))
     (setf (gethash "screen-name"  ht) (twitter-user-screen-name (tweet-user tweet)))
     (setf (gethash "txt"          ht) (tweet-text tweet))
     (setf (gethash "timestamp"    ht) (cl-mongo::make-bson-time))
+    (setf (gethash "priority"     ht) (assign-priority tweet))
     (ht->document ht)))
 
 (defun select-retweets (screen-name &key (max 1) (retweets 1))
@@ -588,20 +662,35 @@ https://dev.twitter.com/discussions/1748
 (defun start-job-select-retweets (screen-name &key (every 1384) (iter 10))
   (submit-job (concatenate 'string "job-select-retweets-" screen-name) #'job-select-retweets :args (list screen-name) :every every :iter iter :errorhandler t))
 
+;;
+;; Retweet group time line
+;;
+;;(rm "retweets" (cl-mongo:$exists "retweeted" nil))
+
+(defun skip-tweets (screen-name)
+  (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
+    (let ((lst (collect-all-elements (list :_id "screen-name" "txt") (docs (db.find "retweets" (cl-mongo:$exists "retweeted" nil) :limit 1000)))))
+      (dolist (el lst)
+	(db.update "retweets" ($ "_id" (car el)) ($set "retweeted" (format nil "skipped ~S" (cl-mongo::make-bson-time))) :upsert t :multi t)))))
+
+;;;THIS IS THE MAIN RETWEET
+  
 (defun user-list-timeline-retweets (screen-name &key (max 1))
-  (let ((retweets (ht->lst (user-list-timeline screen-name :max-per-list max))))
-    (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
-      (dolist (tweet retweets)
-	(when (zerop (ret (db.count "retweets" ($ "_id" (tweet-id tweet)))))
-	  (db.insert "retweets" (retweet->document tweet)))))))
+  (progn
+    (skip-tweets screen-name)
+    (let ((retweets (ht->lst (user-list-timeline screen-name :max-per-list max))))
+      (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
+	(dolist (tweet retweets)
+	  (when (zerop (ret (db.count "retweets" ($ "_id" (tweet-id tweet)))))
+	    (db.insert "retweets" (retweet->document tweet))))))))
   
 (defun job-user-list-timeline-retweets (screen-name)
   (when (zerop (cl-twitter:rate-limit-remaining-hits (cl-twitter:rate-limit-status))) (error "rate limit exceeded for user ~A" screen-name))
-  (user-list-timeline-retweets screen-name :max 2))
+  (user-list-timeline-retweets screen-name :max 1))
 
-(defun start-job-user-list-timeline-retweets (screen-name &key (every 1384) (iter 10))
-  (submit-job (concatenate 'string "job-select-retweets-" screen-name) #'job-user-list-timeline-retweets 
-	      :args (list screen-name) :every every :iter iter :errorhandler t))
+(defun start-job-user-list-timeline-retweets (screen-name &key (every 1384) (iter 10) (maxerror 20))
+  (submit-job (concatenate 'string "job-user-list-timeline-retweets" screen-name) #'job-user-list-timeline-retweets 
+	      :args (list screen-name) :every every :iter iter :errorhandler t :maxerror maxerror))
 
 
 (defun fmt-retweet (user txt tag)
@@ -616,10 +705,11 @@ https://dev.twitter.com/discussions/1748
       (tweet txt :in-reply-to-status-id id)
       (tweet txt)))
 
+;;    (let ((lst (collect-all-elements (list :_id "screen-name" "txt") (docs (db.find "retweets" (cl-mongo:$exists "retweeted" nil) :limit 1)))))	
 (defun retweet-bot (screen-name)
   (cl-twit-repl:get-authenticated-user screen-name)
   (with-mongo-connection (:host cl-mongo:*mongo-default-host* :port cl-mongo:*mongo-default-port* :db screen-name)
-    (let ((lst (collect-all-elements (list :_id "screen-name" "txt") (docs (db.find "retweets" (cl-mongo:$exists "retweeted" nil) :limit 1)))))
+    (let ((lst (collect-all-elements (list :_id "screen-name" "txt") (docs (db.sort "retweets" (cl-mongo:$exists "retweeted" nil) :field "priority" :asc nil :limit 1)))))
       (dolist (el lst)
 	(format t "~S~%" el)
 	(if (> 3 (random 4))
@@ -658,3 +748,13 @@ https://dev.twitter.com/discussions/1748
 
 (defun show-members (group)
   (mapcar #'twitter-user-screen-name (ht->lst (collect-user-list-members (twitter-user-screen-name *twitter-user*) group))))
+
+
+;;(cl-twit-repl::show (rate-limit-status))
+;;(db.use "darealmaozedong")
+;;(pp (db.count "retweets" (cl-mongo:$exists "retweeted" nil) ))
+;;(start-job-user-list-timeline-retweets "darealmaozedong" :every (* 42 61) :iter 24)
+;;(start-job-retweet-bot "darealmaozedong" :every (* 61 2) :iter 300)
+;;(start-job-twitter-bot "darealmaozedong" :every (* 56 16 ) :iter 320)
+#|
+|#

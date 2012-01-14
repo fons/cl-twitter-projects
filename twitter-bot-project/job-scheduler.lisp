@@ -20,7 +20,7 @@
     (let* ((docs* (docs (iter (db.find collection :all))))
 	   (elements (cl-mongo:collect-all-elements (list "id" "condition" "timestamp") docs*)))
       (dolist (el elements)
-	(format t "~A | ~A | ~A ~%" (nth 0 el) (nth 1 el) (fmt-ts (nth 2 el)))))))
+	(format t "~A | ~A | ~A ~%" (fmt-ts (nth 2 el))  (nth 0 el) (nth 1 el) )))))
 
 (defun make-scheduled-job (func &key (args nil) (every 0) (iter 100) (maxerror 5) (errorhandler #'identity))
   (progn
@@ -81,3 +81,5 @@
 
 (defun run-test-job (arg &key (every 10) (iter 10) )
   (submit-job "test-job" #'test-job :args (list arg) :every every :iter iter :errorhandler t))
+
+
