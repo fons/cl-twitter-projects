@@ -576,8 +576,8 @@ https://dev.twitter.com/discussions/1748
 		 priority)))
     (reduce #'+ (mapcar #'priority (mapcar entity-attribute (funcall entity tweet))))))
 
-;;(defun screen-name? (tweet match-value priority)
-;;  (entity-match? #'entity-user-mentions #'user-mention-screen-name tweet match-value priority))
+(defun user-mention? (tweet match-value priority)
+  (entity-match? #'entity-user-mentions #'user-mention-screen-name tweet match-value priority))
 
 (defun screen-name? (tweet match-value priority)
   (entity-match? (lambda (tw) (list (tweet-user tw))) #'twitter-user-screen-name tweet match-value priority))
